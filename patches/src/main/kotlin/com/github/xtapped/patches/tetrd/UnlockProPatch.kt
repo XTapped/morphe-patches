@@ -134,7 +134,7 @@ val unlockProPatch = bytecodePatch(
 
             ShopFingerprint.method.addInstruction(
                 match.index,
-                "const/4 v$enabledRegister, 0x0"
+                "const/16 v$enabledRegister, 0x0"
             )
         }
     }
