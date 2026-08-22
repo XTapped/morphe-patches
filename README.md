@@ -9,8 +9,21 @@ Patches maintained by yours truly for use with Morphe.
 ## Patches
 
 <!-- PATCHES_START EXPANDED -->
+> **[v1.0.0-dev.1](https://github.com/XTapped/morphe-patches/releases/tag/v1.0.0-dev.1)**&nbsp;&nbsp;•&nbsp;&nbsp;`dev`&nbsp;&nbsp;•&nbsp;&nbsp;1 patches total
+<details open>
+<summary>📦 Tetrd&nbsp;&nbsp;•&nbsp;&nbsp;1 patch</summary>
+<br>
 
-No patches have been released yet.
+**🎯 Supported versions:**
+
+| 1.3.2 |
+| :---: |
+
+| 💊&nbsp;Patch | 📜&nbsp;Description | ⚙️&nbsp;Options |
+|----------|----------------|-----------|
+| [Unlock Pro](#unlock-pro) | Unlocks Pro tethering and disables purchase actions in the shop. |  |
+
+</details>
 
 <!-- PATCHES_END -->
 
