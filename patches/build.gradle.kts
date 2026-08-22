@@ -6,6 +6,7 @@ patches {
         description = "Patches maintained by XTapped"
         source = "https://github.com/XTapped/morphe-patches"
         author = "XTapped"
+        contact = "https://github.com/XTapped"
         website = "https://github.com/XTapped/morphe-patches"
         license = "GPLv3"
     }
