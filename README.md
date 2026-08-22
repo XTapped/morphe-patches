@@ -1,6 +1,6 @@
 # XTapped Patches
 
-Patches maintained by XTapped for use with Morphe.
+Patches maintained by yours truly for use with Morphe.
 
 ## Add source
 
