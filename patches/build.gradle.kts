@@ -1,14 +1,12 @@
-group = "app.template"
+group = "com.github.xtapped.patches"
 
 patches {
-    // TODO: Update this section with your project details.
     about {
-        name = "UserXYZ Patches"
-        description = "Patches for apps I like"
-        source = "git@github.com:UserXYZ/morphe-patches.git"
-        author = "Awesome dev"
-        contact = "na"
-        website = "na"
+        name = "XTapped Patches"
+        description = "Patches maintained by XTapped"
+        source = "https://github.com/XTapped/morphe-patches"
+        author = "XTapped"
+        website = "https://github.com/XTapped/morphe-patches"
         license = "GPLv3"
     }
 }
@@ -19,8 +17,6 @@ kotlin {
     }
 }
 
-// Separate configuration so gson is available at runtime for the
-// generatePatchesList task but never bundled into the APK.
 val patchListGeneratorClasspath = configurations.create("patchListGeneratorClasspath")
 
 dependencies {
@@ -38,7 +34,6 @@ tasks {
         mainClass.set("util.PatchListGeneratorKt")
     }
 
-    // Used by gradle-semantic-release-plugin.
     publish {
         dependsOn("generatePatchesList")
     }
