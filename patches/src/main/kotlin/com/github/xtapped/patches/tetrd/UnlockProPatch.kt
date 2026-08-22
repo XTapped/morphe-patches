@@ -111,7 +111,7 @@ private val unlockProResourcesPatch = resourcePatch {
 val unlockProPatch = bytecodePatch(
     name = "Unlock Pro",
     description = "Unlocks Pro tethering and disables purchase actions in the shop.",
-    default = false
+    default = true
 ) {
     compatibleWith(TETRD_COMPATIBILITY)
 
