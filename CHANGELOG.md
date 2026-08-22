@@ -1,3 +1,9 @@
+## [1.0.0-dev.2](https://github.com/XTapped/morphe-patches/compare/v1.0.0-dev.1...v1.0.0-dev.2) (2026-08-22)
+
+### 🐛 Bug Fixes
+
+* enable Unlock Pro by default ([c52bac9](https://github.com/XTapped/morphe-patches/commit/c52bac95a9aa7a6291408f5b2169de37134674ba))
+
 ## 1.0.0-dev.1 (2026-08-22)
 
 ### 🐛 Bug Fixes
