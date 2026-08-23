@@ -9,7 +9,7 @@ Patches maintained by yours truly for use with Morphe.
 ## Patches
 
 <!-- PATCHES_START EXPANDED -->
-> **[v1.1.0-dev.3](https://github.com/XTapped/morphe-patches/releases/tag/v1.1.0-dev.3)**&nbsp;&nbsp;•&nbsp;&nbsp;`dev`&nbsp;&nbsp;•&nbsp;&nbsp;2 patches total
+> **[v1.1.0-dev.4](https://github.com/XTapped/morphe-patches/releases/tag/v1.1.0-dev.4)**&nbsp;&nbsp;•&nbsp;&nbsp;`dev`&nbsp;&nbsp;•&nbsp;&nbsp;2 patches total
 <details open>
 <summary>📦 MotionCam Pro Trial&nbsp;&nbsp;•&nbsp;&nbsp;1 patch</summary>
 <br>
@@ -21,7 +21,7 @@ Patches maintained by yours truly for use with Morphe.
 
 | 💊&nbsp;Patch | 📜&nbsp;Description | ⚙️&nbsp;Options |
 |----------|----------------|-----------|
-| [Unlock Pro](#unlock-pro) | Enable unlimited photo exports from captured RAW frames, remove the 5-second video recording limit, enable pro tools, and apply patched MotionCam branding. |  |
+| [Unlock Pro](#unlock-pro) | Enable unlimited photo exports from captured RAW frames, remove the 5-second video recording limit, enable pro tools, apply patched MotionCam branding, and spoof the installer source as Google Play. Installer source spoofing adapted from Morphe. |  |
 
 </details>
 

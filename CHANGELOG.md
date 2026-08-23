@@ -1,3 +1,9 @@
+## [1.1.0-dev.4](https://github.com/XTapped/morphe-patches/compare/v1.1.0-dev.3...v1.1.0-dev.4) (2026-08-23)
+
+### ✨ New Features
+
+* spoof MotionCam installer source ([6571ab6](https://github.com/XTapped/morphe-patches/commit/6571ab63308233ed2f452443f9360b2c97134775))
+
 ## [1.1.0-dev.3](https://github.com/XTapped/morphe-patches/compare/v1.1.0-dev.2...v1.1.0-dev.3) (2026-08-23)
 
 ### 🐛 Bug Fixes
