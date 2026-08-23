@@ -1,3 +1,9 @@
+## [1.1.0-dev.2](https://github.com/XTapped/morphe-patches/compare/v1.1.0-dev.1...v1.1.0-dev.2) (2026-08-23)
+
+### ✨ New Features
+
+* extend MotionCam Unlock Pro branding ([7b23096](https://github.com/XTapped/morphe-patches/commit/7b230966551ed50a4f6f4a6c6ddbb500763d5c70))
+
 ## [1.1.0-dev.1](https://github.com/XTapped/morphe-patches/compare/v1.0.0...v1.1.0-dev.1) (2026-08-23)
 
 ### ✨ New Features
