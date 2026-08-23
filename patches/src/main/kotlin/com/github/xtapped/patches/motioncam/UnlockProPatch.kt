@@ -75,7 +75,7 @@ private fun Element.androidAttribute(name: String): String =
     getAttributeNS(ANDROID_NAMESPACE, name).ifEmpty { getAttribute("android:$name") }
 
 private fun Element.setAndroidAttribute(name: String, value: String) {
-    setAttributeNS(ANDROID_NAMESPACE, "android:$name", value)
+    setAttribute("android:$name", value)
 }
 
 private fun Document.findElementByAndroidId(id: String): Element? {
@@ -107,7 +107,7 @@ private val unlockProResourcesPatch = resourcePatch {
             }
         }
 
-        document("res/mipmap-anydpi-v26/ic_launcher_background.xml").use { document ->
+        document("res/mipmap-anydpi/ic_launcher_background.xml").use { document ->
             val paths = document.getElementsByTagName("path")
             val background = (0 until paths.length)
                 .asSequence()
@@ -184,11 +184,11 @@ private val unlockProRawResourcesPatch = rawResourcePatch {
         library.writeBytes(bytes)
 
         mapOf(
-            "mdpi" to "res/mipmap-mdpi-v4",
-            "hdpi" to "res/mipmap-hdpi-v4",
-            "xhdpi" to "res/mipmap-xhdpi-v4",
-            "xxhdpi" to "res/mipmap-xxhdpi-v4",
-            "xxxhdpi" to "res/mipmap-xxxhdpi-v4"
+            "mdpi" to "res/mipmap-mdpi",
+            "hdpi" to "res/mipmap-hdpi",
+            "xhdpi" to "res/mipmap-xhdpi",
+            "xxhdpi" to "res/mipmap-xxhdpi",
+            "xxxhdpi" to "res/mipmap-xxxhdpi"
         ).forEach { (density, resourceDirectory) ->
             val icon = loadIconAsset("ic_launcher_$density.webp")
             get("$resourceDirectory/ic_launcher_foreground.png").writeBytes(icon)
