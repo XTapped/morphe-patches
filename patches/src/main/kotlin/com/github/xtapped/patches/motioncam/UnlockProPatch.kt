@@ -9,7 +9,12 @@ import app.morphe.patcher.patch.PatchException
 import app.morphe.patcher.patch.SupportedAbi
 import app.morphe.patcher.patch.bytecodePatch
 import app.morphe.patcher.patch.rawResourcePatch
+import app.morphe.patcher.patch.resourcePatch
 import com.android.tools.smali.dexlib2.AccessFlags
+import org.w3c.dom.Document
+import org.w3c.dom.Element
+
+private const val ANDROID_NAMESPACE = "http://schemas.android.com/apk/res/android"
 
 private val MOTIONCAM_COMPATIBILITY = Compatibility(
     name = "MotionCam Pro Trial",
@@ -41,6 +46,8 @@ private object LicenseFingerprint : Fingerprint(
     parameters = emptyList()
 )
 
+private object MotionCamAssets
+
 private fun ByteArray.findAll(pattern: ByteArray): List<Int> {
     if (pattern.isEmpty() || pattern.size > size) return emptyList()
 
@@ -58,7 +65,102 @@ private fun ByteArray.findAll(pattern: ByteArray): List<Int> {
     return matches
 }
 
-private val unlockRecordingLimitPatch = rawResourcePatch {
+private fun loadIconAsset(name: String): ByteArray {
+    val path = "/motioncam/$name"
+    return MotionCamAssets::class.java.getResourceAsStream(path)?.use { it.readBytes() }
+        ?: throw PatchException("Missing bundled launcher icon asset: $path")
+}
+
+private fun Element.androidAttribute(name: String): String =
+    getAttributeNS(ANDROID_NAMESPACE, name).ifEmpty { getAttribute("android:$name") }
+
+private fun Element.setAndroidAttribute(name: String, value: String) {
+    setAttributeNS(ANDROID_NAMESPACE, "android:$name", value)
+}
+
+private fun Document.findElementByAndroidId(id: String): Element? {
+    val elements = getElementsByTagName("*")
+    for (index in 0 until elements.length) {
+        val element = elements.item(index) as? Element ?: continue
+        if (element.androidAttribute("id") == id) return element
+    }
+    return null
+}
+
+private val unlockProResourcesPatch = resourcePatch {
+    execute {
+        document("res/values/strings.xml").use { document ->
+            val strings = document.getElementsByTagName("string")
+            var renamed = false
+
+            for (index in 0 until strings.length) {
+                val element = strings.item(index) as? Element ?: continue
+                if (element.getAttribute("name") != "app_name") continue
+
+                element.textContent = "MotionCam Pro: RAW Capture"
+                renamed = true
+                break
+            }
+
+            if (!renamed) {
+                throw PatchException("Could not find the app_name string resource")
+            }
+        }
+
+        document("res/mipmap-anydpi-v26/ic_launcher_background.xml").use { document ->
+            val paths = document.getElementsByTagName("path")
+            val background = (0 until paths.length)
+                .asSequence()
+                .mapNotNull { paths.item(it) as? Element }
+                .firstOrNull()
+                ?: throw PatchException("Could not find the launcher icon background path")
+
+            background.setAndroidAttribute("fillColor", "#00253F")
+        }
+
+        document("res/layout/ui_settings_about.xml").use { document ->
+            val version = document.findElementByAndroidId("@id/version")
+                ?: throw PatchException("Could not find the About page version view")
+            val parent = version.parentNode
+                ?: throw PatchException("About page version view has no parent")
+
+            val patched = document.createElement("TextView").apply {
+                setAndroidAttribute("textAppearance", "@style/MotionCam.TextAppearance.Small.Bold")
+                setAndroidAttribute("textColor", "@color/textColorSecondary")
+                setAndroidAttribute("gravity", "center")
+                setAndroidAttribute("layout_width", "fill_parent")
+                setAndroidAttribute("layout_height", "wrap_content")
+                setAndroidAttribute("layout_marginTop", "2.0dp")
+                setAndroidAttribute("text", "PATCHED")
+            }
+
+            parent.insertBefore(patched, version.nextSibling)
+        }
+
+        listOf(
+            "res/layout/camera.xml",
+            "res/layout-land/camera.xml"
+        ).forEach { layoutPath ->
+            document(layoutPath).use { document ->
+                val getProLink = document.findElementByAndroidId("@id/getProLink")
+                    ?: throw PatchException("Could not find the Get Pro view in $layoutPath")
+
+                getProLink.setAndroidAttribute("visibility", "gone")
+                getProLink.setAndroidAttribute("layout_width", "0.0dp")
+                getProLink.setAndroidAttribute("layout_height", "0.0dp")
+                getProLink.setAndroidAttribute("padding", "0.0dp")
+                getProLink.setAndroidAttribute("layout_marginTop", "0.0dp")
+                getProLink.setAndroidAttribute("layout_marginEnd", "0.0dp")
+                getProLink.setAndroidAttribute("clickable", "false")
+                getProLink.setAndroidAttribute("focusable", "false")
+                getProLink.setAndroidAttribute("importantForAccessibility", "no")
+                getProLink.setAndroidAttribute("text", "")
+            }
+        }
+    }
+}
+
+private val unlockProRawResourcesPatch = rawResourcePatch {
     execute {
         val library = get("lib/arm64-v8a/libnative-camera-host.so")
         val bytes = library.readBytes()
@@ -80,17 +182,29 @@ private val unlockRecordingLimitPatch = rawResourcePatch {
         val branchOffset = matches.single() + 20
         byteArrayOf(0x20, 0x00, 0x00, 0x14).copyInto(bytes, branchOffset)
         library.writeBytes(bytes)
+
+        mapOf(
+            "mdpi" to "res/mipmap-mdpi-v4",
+            "hdpi" to "res/mipmap-hdpi-v4",
+            "xhdpi" to "res/mipmap-xhdpi-v4",
+            "xxhdpi" to "res/mipmap-xxhdpi-v4",
+            "xxxhdpi" to "res/mipmap-xxxhdpi-v4"
+        ).forEach { (density, resourceDirectory) ->
+            val icon = loadIconAsset("ic_launcher_$density.webp")
+            get("$resourceDirectory/ic_launcher_foreground.png").writeBytes(icon)
+            get("$resourceDirectory/ic_launcher_monochrome.png").writeBytes(icon)
+        }
     }
 }
 
 @Suppress("unused")
 val unlockProPatch = bytecodePatch(
     name = "Unlock Pro",
-    description = "Enable unlimited photo exports from captured RAW frames, remove the 5-second video recording limit, and enable pro tools for import, export, and advanced camera workflows",
+    description = "Enable unlimited photo exports from captured RAW frames, remove the 5-second video recording limit, enable pro tools, and apply patched MotionCam branding.",
     default = true
 ) {
     compatibleWith(MOTIONCAM_COMPATIBILITY)
-    dependsOn(unlockRecordingLimitPatch)
+    dependsOn(unlockProResourcesPatch, unlockProRawResourcesPatch)
 
     execute {
         PhotoExportLimiterFingerprint.method.addInstructions(
