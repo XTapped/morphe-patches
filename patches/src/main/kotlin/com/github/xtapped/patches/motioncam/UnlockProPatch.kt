@@ -2,6 +2,9 @@ package com.github.xtapped.patches.motioncam
 
 import app.morphe.patcher.Fingerprint
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
+import app.morphe.patcher.extensions.InstructionExtensions.getInstruction
+import app.morphe.patcher.extensions.InstructionExtensions.replaceInstruction
+import app.morphe.patcher.methodCall
 import app.morphe.patcher.patch.ApkFileType
 import app.morphe.patcher.patch.AppTarget
 import app.morphe.patcher.patch.Compatibility
@@ -11,6 +14,8 @@ import app.morphe.patcher.patch.bytecodePatch
 import app.morphe.patcher.patch.rawResourcePatch
 import app.morphe.patcher.patch.resourcePatch
 import com.android.tools.smali.dexlib2.AccessFlags
+import com.android.tools.smali.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import org.w3c.dom.Document
 import org.w3c.dom.Element
 
@@ -44,6 +49,27 @@ private object LicenseFingerprint : Fingerprint(
     name = "isLicensed",
     returnType = "Z",
     parameters = emptyList()
+)
+
+/*
+ * Installer source spoofing adapted from Morphe's "Change installer source" patch.
+ * Copyright 2026 Morphe.
+ * https://github.com/MorpheApp/morphe-patches
+ */
+private object InstallerSourceFingerprint : Fingerprint(
+    definingClass = "Lcom/pairip/licensecheck/LicenseClient;",
+    name = "performLocalInstallerCheck",
+    accessFlags = listOf(AccessFlags.PRIVATE),
+    returnType = "Z",
+    parameters = emptyList(),
+    filters = listOf(
+        methodCall(
+            definingClass = "Landroid/content/pm/InstallSourceInfo;",
+            name = "getInstallingPackageName",
+            parameters = emptyList(),
+            returnType = "Ljava/lang/String;"
+        )
+    )
 )
 
 private object MotionCamAssets
@@ -200,7 +226,7 @@ private val unlockProRawResourcesPatch = rawResourcePatch {
 @Suppress("unused")
 val unlockProPatch = bytecodePatch(
     name = "Unlock Pro",
-    description = "Enable unlimited photo exports from captured RAW frames, remove the 5-second video recording limit, enable pro tools, and apply patched MotionCam branding.",
+    description = "Enable unlimited photo exports from captured RAW frames, remove the 5-second video recording limit, enable pro tools, apply patched MotionCam branding, and spoof the installer source as Google Play. Installer source spoofing adapted from Morphe.",
     default = true
 ) {
     compatibleWith(MOTIONCAM_COMPATIBILITY)
@@ -223,6 +249,20 @@ val unlockProPatch = bytecodePatch(
                 const/4 v0, 0x1
                 return v0
             """
+        )
+
+        val installerSourceCall = InstallerSourceFingerprint.instructionMatches.single()
+        val installerSourceResultIndex = installerSourceCall.index + 1
+        val installerSourceResult = InstallerSourceFingerprint.method
+            .getInstruction<OneRegisterInstruction>(installerSourceResultIndex)
+
+        if (installerSourceResult.opcode != Opcode.MOVE_RESULT_OBJECT) {
+            throw PatchException("Unexpected installer source result instruction")
+        }
+
+        InstallerSourceFingerprint.method.replaceInstruction(
+            installerSourceResultIndex,
+            "const-string v${installerSourceResult.registerA}, \"com.android.vending\""
         )
     }
 }
