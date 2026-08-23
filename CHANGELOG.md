@@ -1,3 +1,9 @@
+## [1.1.0-dev.1](https://github.com/XTapped/morphe-patches/compare/v1.0.0...v1.1.0-dev.1) (2026-08-23)
+
+### ✨ New Features
+
+* add MotionCam Unlock Pro patch ([e08d476](https://github.com/XTapped/morphe-patches/commit/e08d476526bc6f05dd50844413ede7095a432ba0))
+
 ## 1.0.0 (2026-08-22)
 
 ### 🐛 Bug Fixes

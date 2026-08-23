@@ -9,7 +9,22 @@ Patches maintained by yours truly for use with Morphe.
 ## Patches
 
 <!-- PATCHES_START EXPANDED -->
-> **[v1.0.0](https://github.com/XTapped/morphe-patches/releases/tag/v1.0.0)**&nbsp;&nbsp;•&nbsp;&nbsp;`main`&nbsp;&nbsp;•&nbsp;&nbsp;1 patches total
+> **[v1.1.0-dev.1](https://github.com/XTapped/morphe-patches/releases/tag/v1.1.0-dev.1)**&nbsp;&nbsp;•&nbsp;&nbsp;`dev`&nbsp;&nbsp;•&nbsp;&nbsp;2 patches total
+<details open>
+<summary>📦 MotionCam Pro Trial&nbsp;&nbsp;•&nbsp;&nbsp;1 patch</summary>
+<br>
+
+**🎯 Supported versions:**
+
+| 5.0.8-trial |
+| :---: |
+
+| 💊&nbsp;Patch | 📜&nbsp;Description | ⚙️&nbsp;Options |
+|----------|----------------|-----------|
+| [Unlock Pro](#unlock-pro) | Enable unlimited photo exports from captured RAW frames, remove the 5-second video recording limit, and enable pro tools for import, export, and advanced camera workflows |  |
+
+</details>
+
 <details open>
 <summary>📦 Tetrd&nbsp;&nbsp;•&nbsp;&nbsp;1 patch</summary>
 <br>
