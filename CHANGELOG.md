@@ -1,3 +1,10 @@
+## [1.2.0-dev.2](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.1...v1.2.0-dev.2) (2026-08-29)
+
+### 🐛 Bug Fixes
+
+* add Gboard extension manifest ([2a4fe30](https://github.com/XTapped/morphe-patches/commit/2a4fe30ee9eb0b31299e8b536a559ebc407374f9))
+* scope Google Rambler capability to selector ([a6bd77e](https://github.com/XTapped/morphe-patches/commit/a6bd77e20d80263ba89eb5f8e2d14bfb6ebf2e08))
+
 ## [1.2.0-dev.1](https://github.com/XTapped/morphe-patches/compare/v1.1.0...v1.2.0-dev.1) (2026-08-29)
 
 ### 🐛 Bug Fixes

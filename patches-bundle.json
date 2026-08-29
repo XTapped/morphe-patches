@@ -1,7 +1,7 @@
 {
-  "created_at": "2026-08-29T09:14:32",
-  "description": "## [1.2.0-dev.1](https://github.com/XTapped/morphe-patches/compare/v1.1.0...v1.2.0-dev.1) (2026-08-29)\n\n### 🐛 Bug Fixes\n\n* use pinned Morphe instruction APIs ([647deb1](https://github.com/XTapped/morphe-patches/commit/647deb17db9e980952b79346a8723626c4ebdb5f))\n\n### ✨ New Features\n\n* enable Google Rambler in Gboard ([19d00db](https://github.com/XTapped/morphe-patches/commit/19d00db99dc70358d8c14fac163a49c27c48193d))",
-  "download_url": "https://github.com/XTapped/morphe-patches/releases/download/v1.2.0-dev.1/patches-1.2.0-dev.1.mpp",
+  "created_at": "2026-08-29T10:12:09",
+  "description": "## [1.2.0-dev.2](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.1...v1.2.0-dev.2) (2026-08-29)\n\n### 🐛 Bug Fixes\n\n* add Gboard extension manifest ([2a4fe30](https://github.com/XTapped/morphe-patches/commit/2a4fe30ee9eb0b31299e8b536a559ebc407374f9))\n* scope Google Rambler capability to selector ([a6bd77e](https://github.com/XTapped/morphe-patches/commit/a6bd77e20d80263ba89eb5f8e2d14bfb6ebf2e08))",
+  "download_url": "https://github.com/XTapped/morphe-patches/releases/download/v1.2.0-dev.2/patches-1.2.0-dev.2.mpp",
   "signature_download_url": "",
-  "version": "1.2.0-dev.1"
+  "version": "1.2.0-dev.2"
 }
