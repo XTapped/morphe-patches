@@ -122,6 +122,22 @@ private object VoiceSettingsCreateFingerprint : Fingerprint(
     )
 )
 
+private object VoiceSettingsSubpageAvailabilityFingerprint : Fingerprint(
+    definingClass = VOICE_SETTINGS,
+    name = "aJ",
+    accessFlags = listOf(AccessFlags.PRIVATE, AccessFlags.FINAL),
+    returnType = "Z",
+    parameters = listOf("I"),
+    filters = listOf(
+        methodCall(
+            definingClass = "Lewl;",
+            name = "d",
+            parameters = listOf("Landroid/content/Context;", "Ljava/util/Collection;"),
+            returnType = "V"
+        )
+    )
+)
+
 private object VoiceSettingsSelectionWriteFingerprint : Fingerprint(
     definingClass = VOICE_SETTINGS,
     name = "aD",
@@ -230,6 +246,13 @@ val enableGoogleRamblerPatch = bytecodePatch(
             "enterVoiceSettingsScope",
             "exitVoiceSettingsScope"
         )
+
+        // Gboard probes the Jetson and Traditional detail screens while opening the parent
+        // Voice settings page. Those probes construct device-specific preference handlers.
+        // The selector widget callbacks are installed independently, so suppress only the
+        // detail-page availability probe and keep Rambler/Standard selection functional.
+        VoiceSettingsSubpageAvailabilityFingerprint.method.disableUnsupportedSubpageProbe()
+
         DefaultSelectionFingerprint.method.applyScope(
             "enterDefaultSelectionSuppression",
             "exitDefaultSelectionSuppression"
@@ -290,6 +313,23 @@ private fun MutableMethod.applyScope(enterMethod: String, exitMethod: String) {
         addInstruction(index, "invoke-static {}, $RAMBLER_RUNTIME->$exitMethod()V")
     }
     addInstruction(0, "invoke-static {}, $RAMBLER_RUNTIME->$enterMethod()V")
+}
+
+private fun MutableMethod.disableUnsupportedSubpageProbe() {
+    val instructions = implementation?.instructions
+        ?: throw PatchException("Voice settings subpage probe has no implementation")
+    if (implementation?.registerCount != 8 || instructions.size < 2) {
+        throw PatchException("Unexpected Voice settings subpage probe layout")
+    }
+    if (
+        instructions[0].opcode != Opcode.INVOKE_VIRTUAL ||
+        instructions[1].opcode != Opcode.MOVE_RESULT_OBJECT
+    ) {
+        throw PatchException("Unexpected Voice settings subpage probe entry sequence")
+    }
+
+    replaceInstruction(0, "const/4 v0, 0x0")
+    replaceInstruction(1, "return v0")
 }
 
 private fun MutableMethod.observeBooleanParameter(parameterRegister: String) {
