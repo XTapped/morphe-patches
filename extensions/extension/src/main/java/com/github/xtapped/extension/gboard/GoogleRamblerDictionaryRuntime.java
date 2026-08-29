@@ -28,6 +28,7 @@ public final class GoogleRamblerDictionaryRuntime {
 
     private static volatile Context applicationContext;
     private static volatile Boolean ramblerSelected;
+    private static volatile Boolean dictionaryBiasFallback;
 
     private GoogleRamblerDictionaryRuntime() {
     }
@@ -35,6 +36,15 @@ public final class GoogleRamblerDictionaryRuntime {
     /** Captures the context and selector value from Gboard's own stock selection reader. */
     public static void observeSelection(Context context, boolean selected) {
         rememberContext(context);
+        observeSelectionValue(selected);
+
+        if (readDictionaryBiasPreference() == null && dictionaryBiasFallback != null) {
+            writeDictionaryBiasPreference(dictionaryBiasFallback.booleanValue());
+        }
+    }
+
+    /** Keeps selection state current immediately when the stock selector is changed. */
+    public static void observeSelectionValue(boolean selected) {
         ramblerSelected = Boolean.valueOf(selected);
     }
 
@@ -49,20 +59,25 @@ public final class GoogleRamblerDictionaryRuntime {
             return originalResult;
         }
 
+        dictionaryBiasFallback = (Boolean) originalResult;
         Boolean persisted = readDictionaryBiasPreference();
         if (persisted != null) {
+            dictionaryBiasFallback = persisted;
             return persisted;
         }
 
         // Seed our persistent setting from Gboard's resolved value the first time the flag
-        // is observed, so the switch and runtime behavior start from the same state.
+        // is observed. The in-memory fallback keeps the same value effective even if Gboard
+        // resolves the flag before a Context is available for SharedPreferences.
         writeDictionaryBiasPreference(((Boolean) originalResult).booleanValue());
         return originalResult;
     }
 
     /** Mirrors OverrideFlagPreference changes into storage that works on production Gboard. */
     public static void onOverrideFlagChanged(Object preference, boolean value) {
+        dictionaryBiasFallback = Boolean.valueOf(value);
         if (preference == null) {
+            writeDictionaryBiasPreference(value);
             return;
         }
         try {
@@ -103,7 +118,7 @@ public final class GoogleRamblerDictionaryRuntime {
 
     /** Records eligible Rambler corrections in the database used by Rambler Dictionary. */
     public static void recordRamblerCorrections(Object correctionList) {
-        if (correctionList == null || Boolean.FALSE.equals(ramblerSelected)) {
+        if (correctionList == null || !Boolean.TRUE.equals(ramblerSelected)) {
             return;
         }
 
@@ -165,6 +180,7 @@ public final class GoogleRamblerDictionaryRuntime {
     }
 
     private static void writeDictionaryBiasPreference(boolean value) {
+        dictionaryBiasFallback = Boolean.valueOf(value);
         Context context = applicationContext;
         if (context == null) {
             return;
@@ -175,12 +191,17 @@ public final class GoogleRamblerDictionaryRuntime {
                     .putBoolean(PREF_DICTIONARY_BIAS, value)
                     .apply();
         } catch (Throwable ignored) {
-            // Gboard's resolved flag remains the fallback if storage is unavailable.
+            // The in-memory resolved value remains the fallback if storage is unavailable.
         }
     }
 
     private static boolean isDictionaryBiasEnabled() {
-        return Boolean.TRUE.equals(readDictionaryBiasPreference());
+        Boolean persisted = readDictionaryBiasPreference();
+        if (persisted != null) {
+            dictionaryBiasFallback = persisted;
+            return persisted.booleanValue();
+        }
+        return Boolean.TRUE.equals(dictionaryBiasFallback);
     }
 
     private static Field findField(Class<?> type, String fieldName) throws NoSuchFieldException {
