@@ -1,3 +1,9 @@
+## [1.2.0-dev.10](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.9...v1.2.0-dev.10) (2026-08-29)
+
+### 🐛 Bug Fixes
+
+* scope Rambler dictionary toggle state ([8851669](https://github.com/XTapped/morphe-patches/commit/8851669c9a3d546cf4568f41a5bda47e8f7836d7))
+
 ## [1.2.0-dev.9](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.8...v1.2.0-dev.9) (2026-08-29)
 
 ### 🐛 Bug Fixes
