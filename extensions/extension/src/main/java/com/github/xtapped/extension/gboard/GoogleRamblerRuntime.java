@@ -7,6 +7,9 @@ import java.lang.reflect.Method;
 /** Keeps Google Rambler capability exposure aligned with Gboard's own voice-typing selector. */
 public final class GoogleRamblerRuntime {
     private static final String ENABLE_AGENTIC_DICTATION = "enable_agentic_dictation";
+    private static final String SHOW_PERSONAL_DICT_BIASING_SETTINGS_TOGGLE =
+            "show_personal_dict_biasing_settings_toggle";
+    private static final String SHOW_RAMBLER_DICT_SETTINGS = "show_rambler_dict_settings";
 
     private static final ThreadLocal<Integer> VOICE_SETTINGS_SCOPE_DEPTH =
             new ThreadLocal<Integer>();
@@ -19,7 +22,14 @@ public final class GoogleRamblerRuntime {
     }
 
     public static Object applyFlagValue(String flagName, Object originalResult) {
-        if (!ENABLE_AGENTIC_DICTATION.equals(flagName) || !(originalResult instanceof Boolean)) {
+        if (!(originalResult instanceof Boolean)) {
+            return originalResult;
+        }
+        if (SHOW_PERSONAL_DICT_BIASING_SETTINGS_TOGGLE.equals(flagName)
+                || SHOW_RAMBLER_DICT_SETTINGS.equals(flagName)) {
+            return Boolean.TRUE;
+        }
+        if (!ENABLE_AGENTIC_DICTATION.equals(flagName)) {
             return originalResult;
         }
         return shouldEnableAgenticDictation() ? Boolean.TRUE : originalResult;
