@@ -218,10 +218,6 @@ val enableGoogleRamblerPatch = bytecodePatch(
             }
         }
 
-        // Keep runtime Rambler gates enabled, but deliberately leave
-        // show_rambler_dict_settings at its stock value. That flag exposes a separate
-        // Rambler-only Personal Dictionary settings subtree which is not required for the
-        // official Rambler/Standard selector and assumes additional device capabilities.
         enableBooleanFlag(EnableRamblerAlToolbarFingerprint)
         enableBooleanFlag(EnableRamblerToolbarAtCursorPositionFingerprint)
         enableBooleanFlag(FilterRamblerContributedInputViewSessionFingerprint)
@@ -232,7 +228,7 @@ val enableGoogleRamblerPatch = bytecodePatch(
             replaceInstruction(valueIndex, "const-wide/16 v$valueRegister, 0x2")
         }
 
-        FlagValueGetterFingerprint.method.applyScopedAgenticFlagPolicy()
+        FlagValueGetterFingerprint.method.applyRamblerFlagPolicy()
 
         VoiceSettingsLayoutFingerprint.method.applyScope(
             "enterVoiceSettingsScope",
@@ -247,11 +243,12 @@ val enableGoogleRamblerPatch = bytecodePatch(
             "exitVoiceSettingsScope"
         )
 
-        // Gboard probes the Jetson and Traditional detail screens while opening the parent
-        // Voice settings page. Those probes construct device-specific preference handlers.
-        // The selector widget callbacks are installed independently, so suppress only the
-        // detail-page availability probe and keep Rambler/Standard selection functional.
-        VoiceSettingsSubpageAvailabilityFingerprint.method.disableUnsupportedSubpageProbe()
+        // aJ() is called only for the Rambler and Standard detail screens. Its stock
+        // implementation inflates each page off-screen and runs the full preference
+        // contributor set as a preflight. On unsupported devices that detached preflight is
+        // unsafe. Returning true keeps the row click handlers installed; those handlers are
+        // also the stock path that persists the Rambler/Standard choice before navigating.
+        VoiceSettingsSubpageAvailabilityFingerprint.method.bypassUnsupportedSubpageProbe()
 
         DefaultSelectionFingerprint.method.applyScope(
             "enterDefaultSelectionSuppression",
@@ -263,7 +260,7 @@ val enableGoogleRamblerPatch = bytecodePatch(
     }
 }
 
-private fun MutableMethod.applyScopedAgenticFlagPolicy() {
+private fun MutableMethod.applyRamblerFlagPolicy() {
     val instructions = implementation?.instructions
         ?: throw PatchException("Gboard flag getter has no implementation")
     if (implementation?.registerCount != 3) {
@@ -315,7 +312,7 @@ private fun MutableMethod.applyScope(enterMethod: String, exitMethod: String) {
     addInstruction(0, "invoke-static {}, $RAMBLER_RUNTIME->$enterMethod()V")
 }
 
-private fun MutableMethod.disableUnsupportedSubpageProbe() {
+private fun MutableMethod.bypassUnsupportedSubpageProbe() {
     val instructions = implementation?.instructions
         ?: throw PatchException("Voice settings subpage probe has no implementation")
     if (implementation?.registerCount != 8 || instructions.size < 2) {
@@ -328,7 +325,7 @@ private fun MutableMethod.disableUnsupportedSubpageProbe() {
         throw PatchException("Unexpected Voice settings subpage probe entry sequence")
     }
 
-    replaceInstruction(0, "const/4 v0, 0x0")
+    replaceInstruction(0, "const/4 v0, 0x1")
     replaceInstruction(1, "return v0")
 }
 
