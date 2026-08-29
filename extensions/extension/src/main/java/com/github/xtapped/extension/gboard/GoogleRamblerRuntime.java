@@ -1,38 +1,54 @@
 package com.github.xtapped.extension.gboard;
 
-import android.content.Context;
-
-import java.lang.reflect.Method;
-
-/** Keeps Google Rambler capability exposure aligned with Gboard's own voice-typing selector. */
+/** Exposes Rambler capability flags while leaving Gboard's stock selector as the activation gate. */
 public final class GoogleRamblerRuntime {
     private static final String ENABLE_AGENTIC_DICTATION = "enable_agentic_dictation";
+    private static final String CONFIG_AGENTIC_DICTATION = "config_agentic_dictation";
+    private static final String ENABLE_JETSON_IN_TOOLBAR = "enable_jetson_in_toolbar";
+    private static final String ENABLE_RAMBLER_AL_TOOLBAR = "enable_rambler_al_toolbar";
+    private static final String ENABLE_RAMBLER_TOOLBAR_AT_CURSOR_POSITION =
+            "enable_rambler_toolbar_at_cursor_position";
+    private static final String FILTER_RAMBLER_CONTRIBUTED_INPUT_VIEW_SESSION =
+            "filter_rambler_contributed_input_view_session";
     private static final String SHOW_PERSONAL_DICT_BIASING_SETTINGS_TOGGLE =
             "show_personal_dict_biasing_settings_toggle";
     private static final String SHOW_RAMBLER_DICT_SETTINGS = "show_rambler_dict_settings";
+    private static final String AD_ACTIVATION_TYPE = "ad_activation_type";
 
     private static final ThreadLocal<Integer> VOICE_SETTINGS_SCOPE_DEPTH =
             new ThreadLocal<Integer>();
     private static final ThreadLocal<Integer> DEFAULT_SELECTION_SUPPRESSION_DEPTH =
             new ThreadLocal<Integer>();
 
-    private static volatile Boolean ramblerSelected;
-
     private GoogleRamblerRuntime() {
     }
 
     public static Object applyFlagValue(String flagName, Object originalResult) {
+        if (AD_ACTIVATION_TYPE.equals(flagName) && originalResult instanceof Long) {
+            return Long.valueOf(2L);
+        }
         if (!(originalResult instanceof Boolean)) {
             return originalResult;
         }
         if (SHOW_PERSONAL_DICT_BIASING_SETTINGS_TOGGLE.equals(flagName)
-                || SHOW_RAMBLER_DICT_SETTINGS.equals(flagName)) {
+                || SHOW_RAMBLER_DICT_SETTINGS.equals(flagName)
+                || CONFIG_AGENTIC_DICTATION.equals(flagName)
+                || ENABLE_JETSON_IN_TOOLBAR.equals(flagName)
+                || ENABLE_RAMBLER_AL_TOOLBAR.equals(flagName)
+                || ENABLE_RAMBLER_TOOLBAR_AT_CURSOR_POSITION.equals(flagName)
+                || FILTER_RAMBLER_CONTRIBUTED_INPUT_VIEW_SESSION.equals(flagName)) {
             return Boolean.TRUE;
         }
         if (!ENABLE_AGENTIC_DICTATION.equals(flagName)) {
             return originalResult;
         }
-        return shouldEnableAgenticDictation() ? Boolean.TRUE : originalResult;
+
+        // Capability exposure must not depend on the user's current Rambler/Standard choice.
+        // Gboard's stock runtime eligibility check separately requires the persisted selector.
+        // Suppress only the first-run auto-selection path so Standard remains the default.
+        return depth(DEFAULT_SELECTION_SUPPRESSION_DEPTH) > 0
+                ? Boolean.FALSE
+                : Boolean.TRUE;
     }
 
     public static void enterVoiceSettingsScope() {
@@ -52,47 +68,7 @@ public final class GoogleRamblerRuntime {
     }
 
     public static void updateOfficialSelection(boolean selected) {
-        ramblerSelected = Boolean.valueOf(selected);
-    }
-
-    private static boolean shouldEnableAgenticDictation() {
-        if (depth(DEFAULT_SELECTION_SUPPRESSION_DEPTH) > 0) {
-            return false;
-        }
-        if (depth(VOICE_SETTINGS_SCOPE_DEPTH) > 0) {
-            return true;
-        }
-
-        Boolean selected = ramblerSelected;
-        if (selected == null) {
-            selected = readOfficialSelection();
-        }
-        return Boolean.TRUE.equals(selected);
-    }
-
-    private static Boolean readOfficialSelection() {
-        try {
-            Object application = Class.forName("android.app.ActivityThread")
-                    .getMethod("currentApplication")
-                    .invoke(null);
-            if (!(application instanceof Context)) {
-                return null;
-            }
-
-            ClassLoader loader = application.getClass().getClassLoader();
-            Class<?> selectorSupport = Class.forName("mqz", false, loader);
-            Method selection = selectorSupport.getDeclaredMethod("a", Context.class);
-            selection.setAccessible(true);
-            Object value = selection.invoke(null, application);
-            if (value instanceof Boolean) {
-                Boolean resolved = (Boolean) value;
-                ramblerSelected = resolved;
-                return resolved;
-            }
-        } catch (Throwable ignored) {
-            // Gboard may query the flag before the Application or selector support is ready.
-        }
-        return null;
+        // The stock selector remains the source of truth; capability exposure is independent.
     }
 
     private static void increment(ThreadLocal<Integer> scope) {
