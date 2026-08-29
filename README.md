@@ -9,7 +9,7 @@ Patches maintained by yours truly for use with Morphe.
 ## Patches
 
 <!-- PATCHES_START EXPANDED -->
-> **[v1.2.0-dev.5](https://github.com/XTapped/morphe-patches/releases/tag/v1.2.0-dev.5)**&nbsp;&nbsp;•&nbsp;&nbsp;`dev`&nbsp;&nbsp;•&nbsp;&nbsp;3 patches total
+> **[v1.2.0-dev.6](https://github.com/XTapped/morphe-patches/releases/tag/v1.2.0-dev.6)**&nbsp;&nbsp;•&nbsp;&nbsp;`dev`&nbsp;&nbsp;•&nbsp;&nbsp;3 patches total
 <details open>
 <summary>📦 Gboard&nbsp;&nbsp;•&nbsp;&nbsp;1 patch</summary>
 <br>

@@ -1,3 +1,10 @@
+## [1.2.0-dev.6](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.5...v1.2.0-dev.6) (2026-08-29)
+
+### 🐛 Bug Fixes
+
+* enable Rambler runtime and feedback ([adb16bc](https://github.com/XTapped/morphe-patches/commit/adb16bc95d9b5395961606aaaae0647c98669eef))
+* resolve Rambler feedback fingerprint in patch context ([a4ab05a](https://github.com/XTapped/morphe-patches/commit/a4ab05a9a67b87f83176994c928c14dff5f8fb1e))
+
 ## [1.2.0-dev.5](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.4...v1.2.0-dev.5) (2026-08-29)
 
 ### 🐛 Bug Fixes

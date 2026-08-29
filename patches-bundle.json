@@ -1,7 +1,7 @@
 {
-  "created_at": "2026-08-29T12:54:40",
-  "description": "## [1.2.0-dev.5](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.4...v1.2.0-dev.5) (2026-08-29)\n\n### 🐛 Bug Fixes\n\n* expose Rambler detail settings flags ([041028e](https://github.com/XTapped/morphe-patches/commit/041028e3192fe8d93a7c02f05a229ef24495a246))\n* restore Rambler selector and details route ([347fea3](https://github.com/XTapped/morphe-patches/commit/347fea38210d18192259b51611f8378f01214138))",
-  "download_url": "https://github.com/XTapped/morphe-patches/releases/download/v1.2.0-dev.5/patches-1.2.0-dev.5.mpp",
+  "created_at": "2026-08-29T14:07:04",
+  "description": "## [1.2.0-dev.6](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.5...v1.2.0-dev.6) (2026-08-29)\n\n### 🐛 Bug Fixes\n\n* enable Rambler runtime and feedback ([adb16bc](https://github.com/XTapped/morphe-patches/commit/adb16bc95d9b5395961606aaaae0647c98669eef))\n* resolve Rambler feedback fingerprint in patch context ([a4ab05a](https://github.com/XTapped/morphe-patches/commit/a4ab05a9a67b87f83176994c928c14dff5f8fb1e))",
+  "download_url": "https://github.com/XTapped/morphe-patches/releases/download/v1.2.0-dev.6/patches-1.2.0-dev.6.mpp",
   "signature_download_url": "",
-  "version": "1.2.0-dev.5"
+  "version": "1.2.0-dev.6"
 }
