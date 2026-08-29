@@ -73,6 +73,20 @@ private object RamblerLearningControllerFingerprint : Fingerprint(
     parameters = listOf("Laafm;", "Laafp;")
 )
 
+private object RamblerDictionaryQueryFingerprint : Fingerprint(
+    definingClass = "Lqdb;",
+    name = "d",
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "Lqcw;",
+    parameters = listOf("Lrqe;", "Z"),
+    filters = listOf(
+        string("(shortcut IS NULL OR shortcut != ?)"),
+        string("shortcut = ?"),
+        string("rambler"),
+        string("locale = ? AND ")
+    )
+)
+
 private object AgenticDictationFeedbackAccessPointFingerprint : Fingerprint(
     returnType = "V",
     parameters = emptyList(),
@@ -96,6 +110,7 @@ internal val gboardRamblerFunctionalityPatch = bytecodePatch(
         OverrideFlagPreferenceChangeFingerprint.method.persistDictionaryPreference()
         MuseContextConstructorFingerprint.method.augmentMusePersonalDictionary()
         RamblerLearningControllerFingerprint.method.observeRamblerCorrections()
+        RamblerDictionaryQueryFingerprint.method.ignoreLocaleForRamblerRows()
 
         val feedbackContextIndex =
             AgenticDictationFeedbackAccessPointFingerprint.instructionMatches.first().index
@@ -209,6 +224,38 @@ private fun MutableMethod.observeRamblerCorrections() {
     addInstruction(
         0,
         "invoke-static {p2}, $RAMBLER_DICTIONARY_RUNTIME->recordRamblerCorrections(Ljava/lang/Object;)V"
+    )
+}
+
+private fun MutableMethod.ignoreLocaleForRamblerRows() {
+    val instructions = implementation?.instructions
+        ?: throw PatchException("Rambler dictionary query has no implementation")
+    if (implementation?.registerCount != 16 || instructions.size != 56) {
+        throw PatchException("Unexpected Rambler dictionary query layout")
+    }
+    if (
+        instructions[0].opcode != Opcode.CONST_4 ||
+        instructions[1].opcode != Opcode.IF_EQ ||
+        instructions[2].opcode != Opcode.CONST_STRING ||
+        instructions[4].opcode != Opcode.CONST_STRING ||
+        instructions[5].opcode != Opcode.CONST_STRING
+    ) {
+        throw PatchException("Unexpected Rambler dictionary query entry sequence")
+    }
+
+    // The stock Rambler-only query still filters by the language selected when the
+    // dictionary screen was opened. Learned Rambler entries are tagged with the language
+    // active during dictation, so that hides valid learned words after switching languages.
+    // Nulling only the language argument when showRamblerOnly is true preserves the stock
+    // shortcut="rambler" filter while leaving every normal personal-dictionary query intact.
+    addInstructions(
+        0,
+        """
+            if-eqz p2, :keep_rambler_dictionary_locale
+            const/4 p1, 0x0
+            :keep_rambler_dictionary_locale
+            nop
+        """
     )
 }
 
