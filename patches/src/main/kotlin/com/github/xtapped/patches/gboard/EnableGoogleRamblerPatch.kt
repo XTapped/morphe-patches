@@ -276,7 +276,10 @@ val enableGoogleRamblerPatch = bytecodePatch(
         VoiceSettingsSelectionWriteFingerprint.method.observeBooleanParameter("p0")
         VoiceSettingsSelectionReadFingerprint.method.observeBooleanReturns()
 
-        AgenticDictationFeedbackFingerprint.method.bypassRamblerFeedbackExternalIntentGuard()
+        val feedbackCallIndex =
+            AgenticDictationFeedbackFingerprint.instructionMatches.last().index
+        AgenticDictationFeedbackFingerprint.method
+            .bypassRamblerFeedbackExternalIntentGuard(feedbackCallIndex)
     }
 }
 
@@ -387,8 +390,7 @@ private fun MutableMethod.observeBooleanReturns() {
     }
 }
 
-private fun MutableMethod.bypassRamblerFeedbackExternalIntentGuard() {
-    val callIndex = AgenticDictationFeedbackFingerprint.instructionMatches.last().index
+private fun MutableMethod.bypassRamblerFeedbackExternalIntentGuard(callIndex: Int) {
     val call = getInstructionOrNull(callIndex) as? FiveRegisterInstruction
         ?: throw PatchException("Rambler feedback launcher call has an unexpected form")
 
