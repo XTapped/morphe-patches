@@ -4,6 +4,7 @@ import app.morphe.patcher.Fingerprint
 import app.morphe.patcher.extensions.InstructionExtensions.addInstruction
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.extensions.InstructionExtensions.replaceInstruction
+import app.morphe.patcher.literal
 import app.morphe.patcher.methodCall
 import app.morphe.patcher.patch.PatchException
 import app.morphe.patcher.patch.bytecodePatch
@@ -11,12 +12,19 @@ import app.morphe.patcher.string
 import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod
 import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 
 private const val RAMBLER_DICTIONARY_RUNTIME =
     "Lcom/github/xtapped/extension/gboard/GoogleRamblerDictionaryRuntime;"
+private const val RAMBLER_HELP_RUNTIME =
+    "Lcom/github/xtapped/extension/gboard/GoogleRamblerHelpRuntime;"
 private const val OVERRIDE_FLAG_PREFERENCE =
     "Lcom/google/android/apps/inputmethod/latin/preference/OverrideFlagPreference;"
+private const val VOICE_SETTINGS =
+    "Lcom/google/android/apps/inputmethod/latin/preference/VoiceSettingsFragment;"
+private const val JETSON_VOICE_SETTINGS =
+    "Lcom/google/android/apps/inputmethod/latin/preference/JetsonVoiceSettingsFragment;"
 
 private object RamblerDictionaryFlagValueGetterFingerprint : Fingerprint(
     definingClass = "Lnyh;",
@@ -33,6 +41,20 @@ private object RamblerSelectionReadForDictionaryFingerprint : Fingerprint(
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
     returnType = "Z",
     parameters = listOf("Landroid/content/Context;")
+)
+
+private object RamblerSelectionWriteForDictionaryFingerprint : Fingerprint(
+    definingClass = VOICE_SETTINGS,
+    name = "aD",
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
+    returnType = "V",
+    parameters = listOf(
+        "Z",
+        "Lqiq;",
+        "Lcom/google/android/libraries/inputmethod/preferencewidgets/CustomSelectorWithWidgetPreference;",
+        "Lcom/google/android/libraries/inputmethod/preferencewidgets/CustomSelectorWithWidgetPreference;"
+    ),
+    filters = listOf(literal(2132019634L))
 )
 
 private object OverrideFlagPreferenceChangeFingerprint : Fingerprint(
@@ -87,6 +109,32 @@ private object RamblerDictionaryQueryFingerprint : Fingerprint(
     )
 )
 
+private object ExternalIntentBlockFingerprint : Fingerprint(
+    definingClass = "Loxu;",
+    name = "d",
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
+    returnType = "Z",
+    parameters = listOf("Landroid/content/Context;"),
+    filters = listOf(string("Opening an external app is blocked."))
+)
+
+private object JetsonHelpAndFeedbackFingerprint : Fingerprint(
+    definingClass = JETSON_VOICE_SETTINGS,
+    name = "aA",
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "Z",
+    parameters = listOf("Landroidx/preference/Preference;"),
+    filters = listOf(
+        literal(2132019737L),
+        methodCall(
+            definingClass = "Lfbd;",
+            name = "a",
+            parameters = listOf("Landroid/content/Context;"),
+            returnType = "V"
+        )
+    )
+)
+
 private object AgenticDictationFeedbackAccessPointFingerprint : Fingerprint(
     returnType = "V",
     parameters = emptyList(),
@@ -107,10 +155,15 @@ internal val gboardRamblerFunctionalityPatch = bytecodePatch(
     execute {
         RamblerDictionaryFlagValueGetterFingerprint.method.applyDictionaryFlagPolicy()
         RamblerSelectionReadForDictionaryFingerprint.method.observeSelectionAndContext()
+        RamblerSelectionWriteForDictionaryFingerprint.method.observeSelectionWrite()
         OverrideFlagPreferenceChangeFingerprint.method.persistDictionaryPreference()
         MuseContextConstructorFingerprint.method.augmentMusePersonalDictionary()
         RamblerLearningControllerFingerprint.method.observeRamblerCorrections()
         RamblerDictionaryQueryFingerprint.method.ignoreLocaleForRamblerRows()
+
+        ExternalIntentBlockFingerprint.method.adjustRamblerHelpExternalIntentBlock()
+        val helpCallIndex = JetsonHelpAndFeedbackFingerprint.instructionMatches.last().index
+        JetsonHelpAndFeedbackFingerprint.method.routeToStockHelpAndFeedback(helpCallIndex)
 
         val feedbackContextIndex =
             AgenticDictationFeedbackAccessPointFingerprint.instructionMatches.first().index
@@ -163,6 +216,24 @@ private fun MutableMethod.observeSelectionAndContext() {
         addInstruction(
             index,
             "invoke-static {p0, v$register}, $RAMBLER_DICTIONARY_RUNTIME->observeSelection(Landroid/content/Context;Z)V"
+        )
+    }
+}
+
+private fun MutableMethod.observeSelectionWrite() {
+    val instructions = implementation?.instructions
+        ?: throw PatchException("Rambler selection writer has no implementation")
+    val returns = instructions.indices.filter { index ->
+        instructions[index].opcode == Opcode.RETURN_VOID
+    }
+    if (returns.isEmpty()) {
+        throw PatchException("Rambler selection writer has no return")
+    }
+
+    returns.asReversed().forEach { index ->
+        addInstruction(
+            index,
+            "invoke-static {p0}, $RAMBLER_DICTIONARY_RUNTIME->observeSelectionValue(Z)V"
         )
     }
 }
@@ -256,6 +327,60 @@ private fun MutableMethod.ignoreLocaleForRamblerRows() {
             :keep_rambler_dictionary_locale
             nop
         """
+    )
+}
+
+private fun MutableMethod.adjustRamblerHelpExternalIntentBlock() {
+    val instructions = implementation?.instructions
+        ?: throw PatchException("External-intent policy method has no implementation")
+    if (implementation?.registerCount != 6) {
+        throw PatchException("Unexpected external-intent policy register layout")
+    }
+
+    val returns = instructions.indices.filter { index ->
+        instructions[index].opcode == Opcode.RETURN
+    }
+    if (returns.size != 2) {
+        throw PatchException("Unexpected external-intent policy return layout")
+    }
+
+    returns.asReversed().forEach { index ->
+        val register = (instructions[index] as? OneRegisterInstruction)?.registerA
+            ?: throw PatchException("External-intent policy return has no register")
+        addInstructions(
+            index,
+            """
+                invoke-static {v$register}, $RAMBLER_HELP_RUNTIME->adjustExternalIntentBlock(Z)Z
+                move-result v$register
+            """
+        )
+    }
+}
+
+private fun MutableMethod.routeToStockHelpAndFeedback(callIndex: Int) {
+    val instructions = implementation?.instructions
+        ?: throw PatchException("Rambler settings click handler has no implementation")
+    val call = instructions.getOrNull(callIndex) as? FiveRegisterInstruction
+        ?: throw PatchException("Rambler Help & feedback call has an unexpected form")
+
+    if (
+        implementation?.registerCount != 5 ||
+        call.registerCount != 1 ||
+        call.registerC != 3 ||
+        callIndex < 2 ||
+        instructions[callIndex - 2].opcode != Opcode.INVOKE_VIRTUAL ||
+        instructions[callIndex - 1].opcode != Opcode.MOVE_RESULT_OBJECT
+    ) {
+        throw PatchException("Unexpected Rambler Help & feedback call layout")
+    }
+
+    // The stock Rambler row calls the Agentic feedback client, which can silently no-op in
+    // a patched/unsupported-device setup. Route only this row through Gboard's normal Help &
+    // feedback click handler. The extension opens that handler under a tightly scoped bypass
+    // of Loxu.d(); all other external-intent policy checks keep their stock behavior.
+    replaceInstruction(
+        callIndex,
+        "invoke-static {p0, p1}, $RAMBLER_HELP_RUNTIME->openHelpAndFeedback(Ljava/lang/Object;Ljava/lang/Object;)V"
     )
 }
 
