@@ -1,3 +1,9 @@
+## [1.2.0-dev.3](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.2...v1.2.0-dev.3) (2026-08-29)
+
+### 🐛 Bug Fixes
+
+* keep unsupported Rambler dictionary settings hidden ([3ae9e99](https://github.com/XTapped/morphe-patches/commit/3ae9e9955a4e11517a99fde7c8219bcf1d233bee))
+
 ## [1.2.0-dev.2](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.1...v1.2.0-dev.2) (2026-08-29)
 
 ### 🐛 Bug Fixes
