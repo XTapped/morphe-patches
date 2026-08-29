@@ -1,3 +1,9 @@
+## [1.2.0-dev.4](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.3...v1.2.0-dev.4) (2026-08-29)
+
+### 🐛 Bug Fixes
+
+* avoid unsupported Rambler settings probes ([de29504](https://github.com/XTapped/morphe-patches/commit/de2950491e443b7cb41e5cf7c9598eebb0e9d45e))
+
 ## [1.2.0-dev.3](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.2...v1.2.0-dev.3) (2026-08-29)
 
 ### 🐛 Bug Fixes
