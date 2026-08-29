@@ -1,0 +1,53 @@
+name: Morphe Binary Validation Export
+
+on:
+  push:
+    branches:
+      - rambler-feedback-staging
+    paths-ignore:
+      - validation-export/**
+
+permissions:
+  contents: write
+  packages: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Java
+        uses: actions/setup-java@v5.7.0
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Build Android patch bundle
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./gradlew :patches:buildAndroid --no-daemon
+
+      - name: Export bundle as text chunks
+        run: |
+          set -euo pipefail
+          rm -rf validation-export
+          mkdir -p validation-export
+          mpp=$(find patches/build/libs -maxdepth 1 -type f -name 'patches-*.mpp' ! -name '*sources*' ! -name '*javadoc*' | head -n 1)
+          test -n "$mpp"
+          sha256sum "$mpp" | tee validation-export/SHA256.txt
+          base64 -w 0 "$mpp" > validation-export/bundle.b64
+          split -b 60000 -d -a 3 validation-export/bundle.b64 validation-export/chunk-
+          rm validation-export/bundle.b64
+          printf '%s\n' "$mpp" > validation-export/source-path.txt
+          ls -l validation-export
+
+      - name: Commit validation export
+        run: |
+          set -euo pipefail
+          git config user.name 'morphe-validation-bot'
+          git config user.email 'morphe-validation-bot@users.noreply.github.com'
+          git add validation-export
+          git commit -m 'chore: export Morphe validation bundle [skip ci]'
+          git push
