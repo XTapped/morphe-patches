@@ -1,7 +1,7 @@
 {
-  "created_at": "2026-08-23T07:52:42",
-  "description": "## [1.1.0](https://github.com/XTapped/morphe-patches/compare/v1.0.0...v1.1.0) (2026-08-23)\n\n### 🐛 Bug Fixes\n\n* use decoded MotionCam resource paths ([296b3db](https://github.com/XTapped/morphe-patches/commit/296b3db9939d86ddf17fa9fc68f5eb7951962f07))\n\n### ✨ New Features\n\n* add MotionCam Unlock Pro patch ([e08d476](https://github.com/XTapped/morphe-patches/commit/e08d476526bc6f05dd50844413ede7095a432ba0))\n* extend MotionCam Unlock Pro branding ([7b23096](https://github.com/XTapped/morphe-patches/commit/7b230966551ed50a4f6f4a6c6ddbb500763d5c70))\n* spoof MotionCam installer source ([6571ab6](https://github.com/XTapped/morphe-patches/commit/6571ab63308233ed2f452443f9360b2c97134775))",
-  "download_url": "https://github.com/XTapped/morphe-patches/releases/download/v1.1.0/patches-1.1.0.mpp",
+  "created_at": "2026-08-29T09:14:32",
+  "description": "## [1.2.0-dev.1](https://github.com/XTapped/morphe-patches/compare/v1.1.0...v1.2.0-dev.1) (2026-08-29)\n\n### 🐛 Bug Fixes\n\n* use pinned Morphe instruction APIs ([647deb1](https://github.com/XTapped/morphe-patches/commit/647deb17db9e980952b79346a8723626c4ebdb5f))\n\n### ✨ New Features\n\n* enable Google Rambler in Gboard ([19d00db](https://github.com/XTapped/morphe-patches/commit/19d00db99dc70358d8c14fac163a49c27c48193d))",
+  "download_url": "https://github.com/XTapped/morphe-patches/releases/download/v1.2.0-dev.1/patches-1.2.0-dev.1.mpp",
   "signature_download_url": "",
-  "version": "1.1.0"
+  "version": "1.2.0-dev.1"
 }

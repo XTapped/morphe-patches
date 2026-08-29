@@ -1,3 +1,13 @@
+## [1.2.0-dev.1](https://github.com/XTapped/morphe-patches/compare/v1.1.0...v1.2.0-dev.1) (2026-08-29)
+
+### 🐛 Bug Fixes
+
+* use pinned Morphe instruction APIs ([647deb1](https://github.com/XTapped/morphe-patches/commit/647deb17db9e980952b79346a8723626c4ebdb5f))
+
+### ✨ New Features
+
+* enable Google Rambler in Gboard ([19d00db](https://github.com/XTapped/morphe-patches/commit/19d00db99dc70358d8c14fac163a49c27c48193d))
+
 ## [1.1.0](https://github.com/XTapped/morphe-patches/compare/v1.0.0...v1.1.0) (2026-08-23)
 
 ### 🐛 Bug Fixes
