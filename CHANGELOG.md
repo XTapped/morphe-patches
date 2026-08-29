@@ -1,3 +1,10 @@
+## [1.2.0-dev.11](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.10...v1.2.0-dev.11) (2026-08-29)
+
+### 🐛 Bug Fixes
+
+* remove obsolete Rambler feedback mutation ([fd15bab](https://github.com/XTapped/morphe-patches/commit/fd15babcb333a8479e471d153e5685066492b351))
+* remove superseded Rambler feedback hook ([37775e8](https://github.com/XTapped/morphe-patches/commit/37775e888f912ddb622194e16d106dbd2b76d576))
+
 ## [1.2.0-dev.10](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.9...v1.2.0-dev.10) (2026-08-29)
 
 ### 🐛 Bug Fixes
