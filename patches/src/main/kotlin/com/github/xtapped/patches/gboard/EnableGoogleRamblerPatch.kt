@@ -57,8 +57,6 @@ private val EnableRamblerAlToolbarFingerprint =
     booleanFlagFingerprint("enable_rambler_al_toolbar")
 private val EnableRamblerToolbarAtCursorPositionFingerprint =
     booleanFlagFingerprint("enable_rambler_toolbar_at_cursor_position")
-private val ShowRamblerDictSettingsFingerprint =
-    booleanFlagFingerprint("show_rambler_dict_settings")
 private val FilterRamblerContributedInputViewSessionFingerprint =
     booleanFlagFingerprint("filter_rambler_contributed_input_view_session")
 
@@ -204,11 +202,12 @@ val enableGoogleRamblerPatch = bytecodePatch(
             }
         }
 
-        // Keep the non-capability Rambler gates enabled. The agentic capability itself is
-        // handled below at runtime so Voice settings can expose the official selector safely.
+        // Keep runtime Rambler gates enabled, but deliberately leave
+        // show_rambler_dict_settings at its stock value. That flag exposes a separate
+        // Rambler-only Personal Dictionary settings subtree which is not required for the
+        // official Rambler/Standard selector and assumes additional device capabilities.
         enableBooleanFlag(EnableRamblerAlToolbarFingerprint)
         enableBooleanFlag(EnableRamblerToolbarAtCursorPositionFingerprint)
-        enableBooleanFlag(ShowRamblerDictSettingsFingerprint)
         enableBooleanFlag(FilterRamblerContributedInputViewSessionFingerprint)
 
         AdActivationTypeFingerprint.method.apply {
