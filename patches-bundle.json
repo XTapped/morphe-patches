@@ -1,7 +1,7 @@
 {
-  "created_at": "2026-08-29T14:07:04",
-  "description": "## [1.2.0-dev.6](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.5...v1.2.0-dev.6) (2026-08-29)\n\n### 🐛 Bug Fixes\n\n* enable Rambler runtime and feedback ([adb16bc](https://github.com/XTapped/morphe-patches/commit/adb16bc95d9b5395961606aaaae0647c98669eef))\n* resolve Rambler feedback fingerprint in patch context ([a4ab05a](https://github.com/XTapped/morphe-patches/commit/a4ab05a9a67b87f83176994c928c14dff5f8fb1e))",
-  "download_url": "https://github.com/XTapped/morphe-patches/releases/download/v1.2.0-dev.6/patches-1.2.0-dev.6.mpp",
+  "created_at": "2026-08-29T15:44:39",
+  "description": "## [1.2.0-dev.7](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.6...v1.2.0-dev.7) (2026-08-29)\n\n### 🐛 Bug Fixes\n\n* add Rambler dictionary and feedback hooks ([0599db5](https://github.com/XTapped/morphe-patches/commit/0599db59c044a43ace1dd10b7365a89844f2bbef))\n* add Rambler dictionary runtime ([3631c7d](https://github.com/XTapped/morphe-patches/commit/3631c7d7e5ce0ea7525581fedfb4471bcbe3effb))\n* wire Rambler functionality dependency ([c682116](https://github.com/XTapped/morphe-patches/commit/c68211688dacee35240187815b47e48a3d115aa2))",
+  "download_url": "https://github.com/XTapped/morphe-patches/releases/download/v1.2.0-dev.7/patches-1.2.0-dev.7.mpp",
   "signature_download_url": "",
-  "version": "1.2.0-dev.6"
+  "version": "1.2.0-dev.7"
 }

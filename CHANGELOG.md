@@ -1,3 +1,11 @@
+## [1.2.0-dev.7](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.6...v1.2.0-dev.7) (2026-08-29)
+
+### 🐛 Bug Fixes
+
+* add Rambler dictionary and feedback hooks ([0599db5](https://github.com/XTapped/morphe-patches/commit/0599db59c044a43ace1dd10b7365a89844f2bbef))
+* add Rambler dictionary runtime ([3631c7d](https://github.com/XTapped/morphe-patches/commit/3631c7d7e5ce0ea7525581fedfb4471bcbe3effb))
+* wire Rambler functionality dependency ([c682116](https://github.com/XTapped/morphe-patches/commit/c68211688dacee35240187815b47e48a3d115aa2))
+
 ## [1.2.0-dev.6](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.5...v1.2.0-dev.6) (2026-08-29)
 
 ### 🐛 Bug Fixes
