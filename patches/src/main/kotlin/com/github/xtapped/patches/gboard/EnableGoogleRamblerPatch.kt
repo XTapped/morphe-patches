@@ -173,24 +173,6 @@ private object DefaultSelectionFingerprint : Fingerprint(
     )
 )
 
-private object AgenticDictationFeedbackFingerprint : Fingerprint(
-    definingClass = "Lfbd;",
-    name = "a",
-    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
-    returnType = "V",
-    parameters = listOf("Landroid/content/Context;"),
-    filters = listOf(
-        string(".GBOARD_JETSON"),
-        string("jetson_feedback_trigger_id"),
-        methodCall(
-            definingClass = "Lrza;",
-            name = "g",
-            parameters = listOf("Landroid/content/Context;", "Llfo;"),
-            returnType = "V"
-        )
-    )
-)
-
 @Suppress("unused")
 val enableGoogleRamblerPatch = bytecodePatch(
     name = "Enable Google Rambler",
@@ -275,11 +257,6 @@ val enableGoogleRamblerPatch = bytecodePatch(
 
         VoiceSettingsSelectionWriteFingerprint.method.observeBooleanParameter("p0")
         VoiceSettingsSelectionReadFingerprint.method.observeBooleanReturns()
-
-        val feedbackCallIndex =
-            AgenticDictationFeedbackFingerprint.instructionMatches.last().index
-        AgenticDictationFeedbackFingerprint.method
-            .bypassRamblerFeedbackExternalIntentGuard(feedbackCallIndex)
     }
 }
 
@@ -388,34 +365,4 @@ private fun MutableMethod.observeBooleanReturns() {
             "invoke-static {v$register}, $RAMBLER_RUNTIME->updateOfficialSelection(Z)V"
         )
     }
-}
-
-private fun MutableMethod.bypassRamblerFeedbackExternalIntentGuard(callIndex: Int) {
-    val call = getInstructionOrNull(callIndex) as? FiveRegisterInstruction
-        ?: throw PatchException("Rambler feedback launcher call has an unexpected form")
-
-    if (
-        implementation?.registerCount != 5 ||
-        call.registerCount != 2 ||
-        call.registerC != 4 ||
-        call.registerD != 1
-    ) {
-        throw PatchException("Unexpected Rambler feedback launcher register layout")
-    }
-
-    // Lrza.g() normally blocks before launching feedback when the generic
-    // prevent_external_intents policy is active. Copy only its post-guard stock launch
-    // sequence here, so the Rambler feedback row works without weakening that policy for
-    // any other external intent in Gboard.
-    replaceInstruction(callIndex, "new-instance v0, Llsh;")
-    addInstructions(
-        callIndex + 1,
-        """
-            const/4 v2, 0x0
-            invoke-direct {v0, v4, v2, v2}, Llsh;-><init>(Landroid/content/Context;[B[B)V
-            invoke-virtual {v1}, Llfo;->a()Llfp;
-            move-result-object v2
-            invoke-virtual {v0, v2}, Llsh;->l(Llfp;)V
-        """
-    )
 }
