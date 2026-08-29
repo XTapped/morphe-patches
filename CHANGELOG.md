@@ -1,3 +1,9 @@
+## [1.2.0-dev.8](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.7...v1.2.0-dev.8) (2026-08-29)
+
+### 🐛 Bug Fixes
+
+* show Rambler dictionary entries across locales ([7349fa3](https://github.com/XTapped/morphe-patches/commit/7349fa364a1398a74799f163f4c7813a07659a81))
+
 ## [1.2.0-dev.7](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.6...v1.2.0-dev.7) (2026-08-29)
 
 ### 🐛 Bug Fixes
