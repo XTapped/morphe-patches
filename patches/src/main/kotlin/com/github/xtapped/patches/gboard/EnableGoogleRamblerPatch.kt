@@ -4,9 +4,12 @@ import app.morphe.patcher.Fingerprint
 import app.morphe.patcher.InstructionLocation.MatchAfterImmediately
 import app.morphe.patcher.anyInstruction
 import app.morphe.patcher.extensions.InstructionExtensions.addInstruction
+import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.extensions.InstructionExtensions.getInstruction
 import app.morphe.patcher.extensions.InstructionExtensions.getInstructionOrNull
 import app.morphe.patcher.extensions.InstructionExtensions.replaceInstruction
+import app.morphe.patcher.literal
+import app.morphe.patcher.methodCall
 import app.morphe.patcher.opcode
 import app.morphe.patcher.patch.ApkFileType
 import app.morphe.patcher.patch.AppTarget
@@ -14,6 +17,7 @@ import app.morphe.patcher.patch.Compatibility
 import app.morphe.patcher.patch.PatchException
 import app.morphe.patcher.patch.bytecodePatch
 import app.morphe.patcher.string
+import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod
 import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction11n
@@ -28,6 +32,11 @@ private val GBOARD_COMPATIBILITY = Compatibility(
         AppTarget(version = "18.1.3.962075747-release-arm64-v8a")
     )
 )
+
+private const val VOICE_SETTINGS =
+    "Lcom/google/android/apps/inputmethod/latin/preference/VoiceSettingsFragment;"
+private const val RAMBLER_RUNTIME =
+    "Lcom/github/xtapped/extension/gboard/GoogleRamblerRuntime;"
 
 private fun booleanFlagFingerprint(flag: String) = Fingerprint(
     accessFlags = listOf(AccessFlags.STATIC, AccessFlags.CONSTRUCTOR),
@@ -50,8 +59,6 @@ private val EnableRamblerToolbarAtCursorPositionFingerprint =
     booleanFlagFingerprint("enable_rambler_toolbar_at_cursor_position")
 private val ShowRamblerDictSettingsFingerprint =
     booleanFlagFingerprint("show_rambler_dict_settings")
-private val EnableAgenticDictationFingerprint =
-    booleanFlagFingerprint("enable_agentic_dictation")
 private val FilterRamblerContributedInputViewSessionFingerprint =
     booleanFlagFingerprint("filter_rambler_contributed_input_view_session")
 
@@ -67,6 +74,91 @@ private object AdActivationTypeFingerprint : Fingerprint(
     )
 )
 
+private object FlagValueGetterFingerprint : Fingerprint(
+    definingClass = "Lnyh;",
+    name = "g",
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "Ljava/lang/Object;",
+    parameters = emptyList(),
+    filters = listOf(string("Invalid flag: "))
+)
+
+private object VoiceSettingsLayoutFingerprint : Fingerprint(
+    definingClass = VOICE_SETTINGS,
+    name = "aB",
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "I",
+    parameters = emptyList(),
+    filters = listOf(
+        methodCall(
+            definingClass = VOICE_SETTINGS,
+            name = "aK",
+            parameters = emptyList(),
+            returnType = "Z"
+        )
+    )
+)
+
+private object VoiceSettingsSetupFingerprint : Fingerprint(
+    definingClass = VOICE_SETTINGS,
+    name = "ac",
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "V",
+    parameters = emptyList(),
+    filters = listOf(string("setupUnifiedLayout"))
+)
+
+private object VoiceSettingsCreateFingerprint : Fingerprint(
+    definingClass = VOICE_SETTINGS,
+    name = "f",
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "V",
+    parameters = listOf("Landroid/os/Bundle;"),
+    filters = listOf(
+        methodCall(
+            definingClass = VOICE_SETTINGS,
+            name = "aK",
+            parameters = emptyList(),
+            returnType = "Z"
+        )
+    )
+)
+
+private object VoiceSettingsSelectionWriteFingerprint : Fingerprint(
+    definingClass = VOICE_SETTINGS,
+    name = "aD",
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
+    returnType = "V",
+    parameters = listOf(
+        "Z",
+        "Lqiq;",
+        "Lcom/google/android/libraries/inputmethod/preferencewidgets/CustomSelectorWithWidgetPreference;",
+        "Lcom/google/android/libraries/inputmethod/preferencewidgets/CustomSelectorWithWidgetPreference;"
+    ),
+    filters = listOf(literal(2132019634L))
+)
+
+private object VoiceSettingsSelectionReadFingerprint : Fingerprint(
+    definingClass = "Lmqz;",
+    name = "a",
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
+    returnType = "Z",
+    parameters = listOf("Landroid/content/Context;"),
+    filters = listOf(literal(2132019634L))
+)
+
+private object DefaultSelectionFingerprint : Fingerprint(
+    definingClass = "Lfbk;",
+    name = "hU",
+    accessFlags = listOf(AccessFlags.PUBLIC),
+    returnType = "V",
+    parameters = emptyList(),
+    filters = listOf(
+        string("onCreateExtension"),
+        literal(2132019634L)
+    )
+)
+
 @Suppress("unused")
 val enableGoogleRamblerPatch = bytecodePatch(
     name = "Enable Google Rambler",
@@ -74,6 +166,7 @@ val enableGoogleRamblerPatch = bytecodePatch(
     default = true
 ) {
     compatibleWith(GBOARD_COMPATIBILITY)
+    dependsOn(gboardRuntimeExtensionPatch)
 
     execute {
         fun enableBooleanFlag(fingerprint: Fingerprint) {
@@ -96,10 +189,10 @@ val enableGoogleRamblerPatch = bytecodePatch(
                 )
                 val originalValue =
                     getInstruction<BuilderInstruction11n>(originalValueIndex).narrowLiteral
-                val fieldStoreIndex = fingerprint.instructionMatches.last().index
+                val flagResultIndex = fingerprint.instructionMatches.last().index
 
                 addInstruction(
-                    fieldStoreIndex + 1,
+                    flagResultIndex + 1,
                     "const/4 v$valueRegister, $originalValue"
                 )
 
@@ -111,11 +204,11 @@ val enableGoogleRamblerPatch = bytecodePatch(
             }
         }
 
-        // Patch higher offsets first when two flags share the same class initializer.
+        // Keep the non-capability Rambler gates enabled. The agentic capability itself is
+        // handled below at runtime so Voice settings can expose the official selector safely.
         enableBooleanFlag(EnableRamblerAlToolbarFingerprint)
         enableBooleanFlag(EnableRamblerToolbarAtCursorPositionFingerprint)
         enableBooleanFlag(ShowRamblerDictSettingsFingerprint)
-        enableBooleanFlag(EnableAgenticDictationFingerprint)
         enableBooleanFlag(FilterRamblerContributedInputViewSessionFingerprint)
 
         AdActivationTypeFingerprint.method.apply {
@@ -123,5 +216,117 @@ val enableGoogleRamblerPatch = bytecodePatch(
             val valueRegister = getInstruction<OneRegisterInstruction>(valueIndex).registerA
             replaceInstruction(valueIndex, "const-wide/16 v$valueRegister, 0x2")
         }
+
+        FlagValueGetterFingerprint.method.applyScopedAgenticFlagPolicy()
+
+        VoiceSettingsLayoutFingerprint.method.applyScope(
+            "enterVoiceSettingsScope",
+            "exitVoiceSettingsScope"
+        )
+        VoiceSettingsSetupFingerprint.method.applyScope(
+            "enterVoiceSettingsScope",
+            "exitVoiceSettingsScope"
+        )
+        VoiceSettingsCreateFingerprint.method.applyScope(
+            "enterVoiceSettingsScope",
+            "exitVoiceSettingsScope"
+        )
+        DefaultSelectionFingerprint.method.applyScope(
+            "enterDefaultSelectionSuppression",
+            "exitDefaultSelectionSuppression"
+        )
+
+        VoiceSettingsSelectionWriteFingerprint.method.observeBooleanParameter("p0")
+        VoiceSettingsSelectionReadFingerprint.method.observeBooleanReturns()
+    }
+}
+
+private fun MutableMethod.applyScopedAgenticFlagPolicy() {
+    val instructions = implementation?.instructions
+        ?: throw PatchException("Gboard flag getter has no implementation")
+    if (implementation?.registerCount != 3) {
+        throw PatchException("Unexpected Gboard flag getter register layout")
+    }
+
+    val returns = instructions.indices.filter { index ->
+        instructions[index].opcode == Opcode.RETURN_OBJECT
+    }
+    if (returns.size != 1) {
+        throw PatchException("Expected exactly one Gboard flag getter return")
+    }
+
+    val returnIndex = returns.single()
+    val resultRegister = (instructions[returnIndex] as? OneRegisterInstruction)?.registerA
+        ?: throw PatchException("Gboard flag getter return does not expose a register")
+    if (resultRegister != 2) {
+        throw PatchException("Unexpected Gboard flag getter result register")
+    }
+
+    addInstructions(
+        returnIndex,
+        """
+            invoke-static {v1, v$resultRegister}, $RAMBLER_RUNTIME->applyFlagValue(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;
+            move-result-object v$resultRegister
+        """
+    )
+    addInstruction(0, "iget-object v1, p0, Lnyh;->a:Ljava/lang/String;")
+}
+
+private fun MutableMethod.applyScope(enterMethod: String, exitMethod: String) {
+    val instructions = implementation?.instructions
+        ?: throw PatchException("Scoped Gboard method has no implementation")
+    val returns = instructions.indices.filter { index ->
+        instructions[index].opcode in setOf(
+            Opcode.RETURN,
+            Opcode.RETURN_OBJECT,
+            Opcode.RETURN_VOID,
+            Opcode.RETURN_WIDE
+        )
+    }
+    if (returns.isEmpty()) {
+        throw PatchException("Scoped Gboard method has no return instruction")
+    }
+
+    returns.asReversed().forEach { index ->
+        addInstruction(index, "invoke-static {}, $RAMBLER_RUNTIME->$exitMethod()V")
+    }
+    addInstruction(0, "invoke-static {}, $RAMBLER_RUNTIME->$enterMethod()V")
+}
+
+private fun MutableMethod.observeBooleanParameter(parameterRegister: String) {
+    val instructions = implementation?.instructions
+        ?: throw PatchException("Rambler selection writer has no implementation")
+    val returns = instructions.indices.filter { index ->
+        instructions[index].opcode == Opcode.RETURN_VOID
+    }
+    if (returns.isEmpty()) {
+        throw PatchException("Rambler selection writer has no return")
+    }
+
+    returns.asReversed().forEach { index ->
+        addInstruction(
+            index,
+            "invoke-static {$parameterRegister}, $RAMBLER_RUNTIME->updateOfficialSelection(Z)V"
+        )
+    }
+}
+
+private fun MutableMethod.observeBooleanReturns() {
+    val instructions = implementation?.instructions
+        ?: throw PatchException("Rambler selection reader has no implementation")
+    val returns = instructions.indices.filter { index ->
+        instructions[index].opcode == Opcode.RETURN
+    }
+    if (returns.isEmpty()) {
+        throw PatchException("Rambler selection reader has no return")
+    }
+
+    returns.asReversed().forEach { index ->
+        val register = (instructions[index] as? OneRegisterInstruction)?.registerA
+            ?: throw PatchException("Rambler selection return does not expose a register")
+        addInstruction(
+            index,
+            "invoke-static {v$register}, $RAMBLER_RUNTIME->updateOfficialSelection(Z)V"
+        )
     }
 }
