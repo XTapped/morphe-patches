@@ -73,22 +73,22 @@ public final class GoogleRamblerDictionaryRuntime {
         return originalResult;
     }
 
-    /** Mirrors OverrideFlagPreference changes into storage that works on production Gboard. */
+    /** Mirrors only the dictionary OverrideFlagPreference into durable production storage. */
     public static void onOverrideFlagChanged(Object preference, boolean value) {
-        dictionaryBiasFallback = Boolean.valueOf(value);
         if (preference == null) {
-            writeDictionaryBiasPreference(value);
             return;
         }
         try {
+            Object flagName = readField(preference, "r");
+            if (!ENABLE_USER_CONTACT_BIASING.equals(flagName)) {
+                return;
+            }
+
             Object context = readField(preference, "j");
             if (context instanceof Context) {
                 rememberContext((Context) context);
             }
-            Object flagName = readField(preference, "r");
-            if (ENABLE_USER_CONTACT_BIASING.equals(flagName)) {
-                writeDictionaryBiasPreference(value);
-            }
+            writeDictionaryBiasPreference(value);
         } catch (Throwable ignored) {
             // Gboard's own preference implementation remains the fallback.
         }
