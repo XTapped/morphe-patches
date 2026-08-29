@@ -135,20 +135,6 @@ private object JetsonHelpAndFeedbackFingerprint : Fingerprint(
     )
 )
 
-private object AgenticDictationFeedbackAccessPointFingerprint : Fingerprint(
-    returnType = "V",
-    parameters = emptyList(),
-    filters = listOf(
-        methodCall(
-            definingClass = "Losa;",
-            name = "a",
-            parameters = emptyList(),
-            returnType = "Landroid/content/Context;"
-        ),
-        string("Keyboard context is unavailable; skipping Rambler feedback.")
-    )
-)
-
 internal val gboardRamblerFunctionalityPatch = bytecodePatch(
     description = "Makes Rambler dictionary, learning, and feedback functional."
 ) {
@@ -164,11 +150,6 @@ internal val gboardRamblerFunctionalityPatch = bytecodePatch(
         ExternalIntentBlockFingerprint.method.adjustRamblerHelpExternalIntentBlock()
         val helpCallIndex = JetsonHelpAndFeedbackFingerprint.instructionMatches.last().index
         JetsonHelpAndFeedbackFingerprint.method.routeToStockHelpAndFeedback(helpCallIndex)
-
-        val feedbackContextIndex =
-            AgenticDictationFeedbackAccessPointFingerprint.instructionMatches.first().index
-        AgenticDictationFeedbackAccessPointFingerprint.method
-            .replaceRamblerFeedbackContext(feedbackContextIndex)
     }
 }
 
@@ -381,24 +362,5 @@ private fun MutableMethod.routeToStockHelpAndFeedback(callIndex: Int) {
     replaceInstruction(
         callIndex,
         "invoke-static {p0, p1}, $RAMBLER_HELP_RUNTIME->openHelpAndFeedback(Ljava/lang/Object;Ljava/lang/Object;)V"
-    )
-}
-
-private fun MutableMethod.replaceRamblerFeedbackContext(contextCallIndex: Int) {
-    val instructions = implementation?.instructions
-        ?: throw PatchException("Rambler feedback access point has no implementation")
-    if (implementation?.registerCount != 7 || contextCallIndex + 1 >= instructions.size) {
-        throw PatchException("Unexpected Rambler feedback access-point layout")
-    }
-    if (
-        instructions[contextCallIndex].opcode != Opcode.INVOKE_STATIC ||
-        instructions[contextCallIndex + 1].opcode != Opcode.MOVE_RESULT_OBJECT
-    ) {
-        throw PatchException("Unexpected Rambler feedback context call sequence")
-    }
-
-    replaceInstruction(
-        contextCallIndex,
-        "invoke-static {}, $RAMBLER_DICTIONARY_RUNTIME->getApplicationContext()Landroid/content/Context;"
     )
 }
