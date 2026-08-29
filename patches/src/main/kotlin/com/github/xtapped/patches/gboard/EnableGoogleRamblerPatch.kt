@@ -14,7 +14,6 @@ import app.morphe.patcher.patch.Compatibility
 import app.morphe.patcher.patch.PatchException
 import app.morphe.patcher.patch.bytecodePatch
 import app.morphe.patcher.string
-import app.morphe.util.indexOfFirstInstructionReversedOrThrow
 import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction11n
@@ -89,11 +88,11 @@ val enableGoogleRamblerPatch = bytecodePatch(
                     )
                 }
 
-                val originalValueIndex = indexOfFirstInstructionReversedOrThrow(
-                    startIndex = valueIndex,
-                    filter = {
-                        this is BuilderInstruction11n && registerA == valueRegister
-                    }
+                val originalValueIndex = (valueIndex downTo 0).firstOrNull { index ->
+                    val instruction = getInstructionOrNull(index)
+                    instruction is BuilderInstruction11n && instruction.registerA == valueRegister
+                } ?: throw PatchException(
+                    "Could not resolve the original value for a Rambler flag"
                 )
                 val originalValue =
                     getInstruction<BuilderInstruction11n>(originalValueIndex).narrowLiteral
