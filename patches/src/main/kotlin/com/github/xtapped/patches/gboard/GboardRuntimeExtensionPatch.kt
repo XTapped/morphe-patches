@@ -12,6 +12,8 @@ private const val GBOARD_EXTENSION = "extensions/xtapped-gboard.rve"
 internal val gboardRuntimeExtensionPatch = bytecodePatch(
     description = "Merges the shared Gboard runtime extension into the target APK."
 ) {
+    dependsOn(gboardRamblerFunctionalityPatch)
+
     execute {
         mergeBundledExtension(this, GBOARD_EXTENSION)
     }
