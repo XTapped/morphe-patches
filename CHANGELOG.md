@@ -1,3 +1,10 @@
+## [1.2.0-dev.5](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.4...v1.2.0-dev.5) (2026-08-29)
+
+### 🐛 Bug Fixes
+
+* expose Rambler detail settings flags ([041028e](https://github.com/XTapped/morphe-patches/commit/041028e3192fe8d93a7c02f05a229ef24495a246))
+* restore Rambler selector and details route ([347fea3](https://github.com/XTapped/morphe-patches/commit/347fea38210d18192259b51611f8378f01214138))
+
 ## [1.2.0-dev.4](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.3...v1.2.0-dev.4) (2026-08-29)
 
 ### 🐛 Bug Fixes
