@@ -1,3 +1,11 @@
+## [1.2.0-dev.9](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.8...v1.2.0-dev.9) (2026-08-29)
+
+### 🐛 Bug Fixes
+
+* add Rambler stock help runtime ([3e058f9](https://github.com/XTapped/morphe-patches/commit/3e058f9f5fc4addd5c27aa2999e6813c366e390a))
+* harden Rambler dictionary state ([4e323b9](https://github.com/XTapped/morphe-patches/commit/4e323b936c255b8f236ce0c552bd401a22e5cbdf))
+* route Rambler help through stock flow ([206adc7](https://github.com/XTapped/morphe-patches/commit/206adc7b5f8661b24d13ab266dea882f09bf9b13))
+
 ## [1.2.0-dev.8](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.7...v1.2.0-dev.8) (2026-08-29)
 
 ### 🐛 Bug Fixes
