@@ -29,6 +29,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./gradlew :patches:buildAndroid --no-daemon
 
+      - name: Upload validation bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: morphe-validation-mpp
+          path: patches/build/libs/patches-*.mpp
+          if-no-files-found: error
+
       - name: Export bundle as text chunks
         run: |
           set -euo pipefail
@@ -49,5 +56,9 @@ jobs:
           git config user.name 'morphe-validation-bot'
           git config user.email 'morphe-validation-bot@users.noreply.github.com'
           git add validation-export
-          git commit -m 'chore: export Morphe validation bundle [skip ci]'
-          git push
+          if git diff --cached --quiet; then
+            echo 'Validation export unchanged.'
+          else
+            git commit -m 'chore: export Morphe validation bundle [skip ci]'
+            git push
+          fi
