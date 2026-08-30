@@ -14,6 +14,7 @@ import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.RegisterRangeInstruction
 
 private const val RAMBLER_DICTIONARY_RUNTIME =
     "Lcom/github/xtapped/extension/gboard/GoogleRamblerDictionaryRuntime;"
@@ -21,40 +22,38 @@ private const val RAMBLER_HELP_RUNTIME =
     "Lcom/github/xtapped/extension/gboard/GoogleRamblerHelpRuntime;"
 private const val OVERRIDE_FLAG_PREFERENCE =
     "Lcom/google/android/apps/inputmethod/latin/preference/OverrideFlagPreference;"
-private const val VOICE_SETTINGS =
-    "Lcom/google/android/apps/inputmethod/latin/preference/VoiceSettingsFragment;"
 private const val JETSON_VOICE_SETTINGS =
     "Lcom/google/android/apps/inputmethod/latin/preference/JetsonVoiceSettingsFragment;"
 
-private object RamblerDictionaryFlagValueGetterFingerprint : Fingerprint(
-    definingClass = "Lnyh;",
-    name = "g",
-    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
-    returnType = "Ljava/lang/Object;",
-    parameters = emptyList(),
-    filters = listOf(string("Invalid flag: "))
-)
-
-private object RamblerSelectionReadForDictionaryFingerprint : Fingerprint(
+private object RamblerSelectionContextFingerprint : Fingerprint(
     definingClass = "Lmqz;",
     name = "a",
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
     returnType = "Z",
-    parameters = listOf("Landroid/content/Context;")
+    parameters = listOf("Landroid/content/Context;"),
+    filters = listOf(literal(2132019634L))
 )
 
-private object RamblerSelectionWriteForDictionaryFingerprint : Fingerprint(
-    definingClass = VOICE_SETTINGS,
-    name = "aD",
-    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
+private object OverrideFlagPreferenceInitialStateFingerprint : Fingerprint(
+    definingClass = OVERRIDE_FLAG_PREFERENCE,
+    name = "<init>",
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.CONSTRUCTOR),
     returnType = "V",
-    parameters = listOf(
-        "Z",
-        "Lqiq;",
-        "Lcom/google/android/libraries/inputmethod/preferencewidgets/CustomSelectorWithWidgetPreference;",
-        "Lcom/google/android/libraries/inputmethod/preferencewidgets/CustomSelectorWithWidgetPreference;"
-    ),
-    filters = listOf(literal(2132019634L))
+    parameters = listOf("Landroid/content/Context;", "Landroid/util/AttributeSet;"),
+    filters = listOf(
+        methodCall(
+            definingClass = "Lnye;",
+            name = "o",
+            parameters = listOf("Ljava/lang/String;"),
+            returnType = "Lnyb;"
+        ),
+        methodCall(
+            definingClass = "Lnyb;",
+            name = "g",
+            parameters = emptyList(),
+            returnType = "Ljava/lang/Object;"
+        )
+    )
 )
 
 private object OverrideFlagPreferenceChangeFingerprint : Fingerprint(
@@ -73,17 +72,27 @@ private object OverrideFlagPreferenceChangeFingerprint : Fingerprint(
     )
 )
 
-private object MuseContextConstructorFingerprint : Fingerprint(
-    definingClass = "Licr;",
-    name = "<init>",
-    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.CONSTRUCTOR),
-    returnType = "V",
-    parameters = listOf(
-        "Ljava/lang/String;",
-        "Ljava/lang/String;",
-        "Lvxm;",
-        "Lvxm;",
-        "Lvxm;"
+private object MuseContextBuilderFingerprint : Fingerprint(
+    definingClass = "Leyw;",
+    name = "call",
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "Ljava/lang/Object;",
+    parameters = emptyList(),
+    filters = listOf(
+        string("MuseContextModule.java"),
+        string("pref_key_muse_name_dictionary"),
+        methodCall(
+            definingClass = "Licr;",
+            name = "<init>",
+            parameters = listOf(
+                "Ljava/lang/String;",
+                "Ljava/lang/String;",
+                "Lvxm;",
+                "Lvxm;",
+                "Lvxm;"
+            ),
+            returnType = "V"
+        )
     )
 )
 
@@ -109,15 +118,6 @@ private object RamblerDictionaryQueryFingerprint : Fingerprint(
     )
 )
 
-private object ExternalIntentBlockFingerprint : Fingerprint(
-    definingClass = "Loxu;",
-    name = "d",
-    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
-    returnType = "Z",
-    parameters = listOf("Landroid/content/Context;"),
-    filters = listOf(string("Opening an external app is blocked."))
-)
-
 private object JetsonHelpAndFeedbackFingerprint : Fingerprint(
     definingClass = JETSON_VOICE_SETTINGS,
     name = "aA",
@@ -135,88 +135,119 @@ private object JetsonHelpAndFeedbackFingerprint : Fingerprint(
     )
 )
 
+private object StockHelpAndFeedbackFingerprint : Fingerprint(
+    definingClass = "Levx;",
+    name = "b",
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "Z",
+    parameters = listOf("Landroidx/preference/Preference;"),
+    filters = listOf(
+        methodCall(
+            definingClass = "Loxu;",
+            name = "d",
+            parameters = listOf("Landroid/content/Context;"),
+            returnType = "Z"
+        ),
+        string("android_gboard")
+    )
+)
+
 internal val gboardRamblerFunctionalityPatch = bytecodePatch(
     description = "Makes Rambler dictionary, learning, and feedback functional."
 ) {
     execute {
-        RamblerDictionaryFlagValueGetterFingerprint.method.applyDictionaryFlagPolicy()
-        RamblerSelectionReadForDictionaryFingerprint.method.observeSelectionAndContext()
-        RamblerSelectionWriteForDictionaryFingerprint.method.observeSelectionWrite()
+        // Keep runtime state on the Rambler-specific selection path. Avoid intercepting the
+        // global flag getter: Gboard reads that method throughout process startup.
+        RamblerSelectionContextFingerprint.method.observeRamblerContext()
+
+        OverrideFlagPreferenceInitialStateFingerprint.method.restoreDictionaryPreferenceState()
         OverrideFlagPreferenceChangeFingerprint.method.persistDictionaryPreference()
-        MuseContextConstructorFingerprint.method.augmentMusePersonalDictionary()
+
+        val museConstructorCallIndex = MuseContextBuilderFingerprint.instructionMatches.last().index
+        MuseContextBuilderFingerprint.method
+            .augmentRamblerMusePersonalDictionary(museConstructorCallIndex)
+
         RamblerLearningControllerFingerprint.method.observeRamblerCorrections()
         RamblerDictionaryQueryFingerprint.method.ignoreLocaleForRamblerRows()
 
-        ExternalIntentBlockFingerprint.method.adjustRamblerHelpExternalIntentBlock()
         val helpCallIndex = JetsonHelpAndFeedbackFingerprint.instructionMatches.last().index
         JetsonHelpAndFeedbackFingerprint.method.routeToStockHelpAndFeedback(helpCallIndex)
+
+        val stockHelpGuardIndex = StockHelpAndFeedbackFingerprint.instructionMatches.first().index
+        StockHelpAndFeedbackFingerprint.method.scopeStockHelpExternalIntentGuard(stockHelpGuardIndex)
     }
 }
 
-private fun MutableMethod.applyDictionaryFlagPolicy() {
-    val instructions = implementation?.instructions
-        ?: throw PatchException("Gboard dictionary flag getter has no implementation")
-    if (implementation?.registerCount != 3) {
-        throw PatchException("Unexpected Gboard dictionary flag getter register layout")
-    }
-
-    val returns = instructions.indices.filter { index ->
-        instructions[index].opcode == Opcode.RETURN_OBJECT
-    }
-    if (returns.size != 1) {
-        throw PatchException("Expected exactly one Gboard dictionary flag getter return")
-    }
-
-    val returnIndex = returns.single()
-    val resultRegister = (instructions[returnIndex] as? OneRegisterInstruction)?.registerA
-        ?: throw PatchException("Gboard dictionary flag return has no register")
-
-    addInstructions(
-        returnIndex,
-        """
-            invoke-static {v1, v$resultRegister}, $RAMBLER_DICTIONARY_RUNTIME->applyDictionaryFlagValue(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;
-            move-result-object v$resultRegister
-        """
-    )
-    addInstruction(0, "iget-object v1, p0, Lnyh;->a:Ljava/lang/String;")
-}
-
-private fun MutableMethod.observeSelectionAndContext() {
+private fun MutableMethod.observeRamblerContext() {
     val instructions = implementation?.instructions
         ?: throw PatchException("Rambler selection reader has no implementation")
-    val returns = instructions.indices.filter { index ->
-        instructions[index].opcode == Opcode.RETURN
-    }
-    if (returns.isEmpty()) {
-        throw PatchException("Rambler selection reader has no return")
+    if (instructions.isEmpty()) {
+        throw PatchException("Rambler selection reader is empty")
     }
 
-    returns.asReversed().forEach { index ->
-        val register = (instructions[index] as? OneRegisterInstruction)?.registerA
-            ?: throw PatchException("Rambler selection return has no register")
-        addInstruction(
-            index,
-            "invoke-static {p0, v$register}, $RAMBLER_DICTIONARY_RUNTIME->observeSelection(Landroid/content/Context;Z)V"
-        )
-    }
+    addInstruction(
+        0,
+        "invoke-static {p0}, $RAMBLER_DICTIONARY_RUNTIME->observeContext(Landroid/content/Context;)V"
+    )
 }
 
-private fun MutableMethod.observeSelectionWrite() {
+private fun MutableMethod.restoreDictionaryPreferenceState() {
     val instructions = implementation?.instructions
-        ?: throw PatchException("Rambler selection writer has no implementation")
-    val returns = instructions.indices.filter { index ->
-        instructions[index].opcode == Opcode.RETURN_VOID
+        ?: throw PatchException("OverrideFlagPreference constructor has no implementation")
+    if (implementation?.registerCount != 3 || instructions.size != 12) {
+        throw PatchException("Unexpected OverrideFlagPreference constructor layout")
     }
-    if (returns.isEmpty()) {
-        throw PatchException("Rambler selection writer has no return")
+    if (
+        instructions[0].opcode != Opcode.INVOKE_DIRECT ||
+        instructions[4].opcode != Opcode.IPUT_OBJECT ||
+        instructions[8].opcode != Opcode.INVOKE_VIRTUAL ||
+        instructions[9].opcode != Opcode.MOVE_RESULT ||
+        instructions[10].opcode != Opcode.INVOKE_SUPER
+    ) {
+        throw PatchException("Unexpected OverrideFlagPreference constructor sequence")
     }
 
-    returns.asReversed().forEach { index ->
-        addInstruction(
-            index,
-            "invoke-static {p0}, $RAMBLER_DICTIONARY_RUNTIME->observeSelectionValue(Z)V"
-        )
-    }
+    // The stock preference reads a production flag whose override is not reliable across
+    // processes on unsupported devices. p2 is no longer needed after the superclass
+    // constructor, so use it to preserve the resolved boolean while resolving the flag name.
+    addInstructions(
+        10,
+        """
+            invoke-static {p1}, $RAMBLER_DICTIONARY_RUNTIME->observeContext(Landroid/content/Context;)V
+        """
+    )
+
+    // Context was held in p1 before the stock code reused that register for the boolean. The
+    // call above therefore has to be made while the constructor argument is still intact.
+    // Move it to the method entry instead, before any stock register reuse.
+    removeInstruction(10)
+    addInstruction(
+        0,
+        "invoke-static {p1}, $RAMBLER_DICTIONARY_RUNTIME->observeContext(Landroid/content/Context;)V"
+    )
+
+    // The insertion at method entry shifts the stock invoke-super checked above by one. Find
+    // the move-result boolean and inject immediately after it rather than retaining a stale
+    // source index.
+    val currentInstructions = implementation?.instructions
+        ?: throw PatchException("OverrideFlagPreference constructor disappeared")
+    val booleanResultIndex = currentInstructions.indices.firstOrNull { index ->
+        index > 0 &&
+            currentInstructions[index].opcode == Opcode.MOVE_RESULT &&
+            currentInstructions[index - 1].opcode == Opcode.INVOKE_VIRTUAL
+    } ?: throw PatchException("Could not locate OverrideFlagPreference boolean result")
+
+    addInstructions(
+        booleanResultIndex + 1,
+        """
+            move p2, p1
+            iget-object p1, p0, $OVERRIDE_FLAG_PREFERENCE->c:Lnyb;
+            invoke-interface {p1}, Lnyb;->h()Ljava/lang/String;
+            move-result-object p1
+            invoke-static {p1, p2}, $RAMBLER_DICTIONARY_RUNTIME->resolveDictionaryPreference(Ljava/lang/String;Z)Z
+            move-result p1
+        """
+    )
 }
 
 private fun MutableMethod.persistDictionaryPreference() {
@@ -227,38 +258,48 @@ private fun MutableMethod.persistDictionaryPreference() {
     }
     if (
         instructions[0].opcode != Opcode.INVOKE_SUPER ||
+        instructions[1].opcode != Opcode.IGET_OBJECT ||
+        instructions[2].opcode != Opcode.IF_EQZ ||
         instructions[8].opcode != Opcode.INVOKE_INTERFACE ||
         instructions[9].opcode != Opcode.RETURN_VOID
     ) {
         throw PatchException("Unexpected OverrideFlagPreference setter sequence")
     }
 
-    addInstruction(
-        0,
-        "invoke-static {p0, p1}, $RAMBLER_DICTIONARY_RUNTIME->onOverrideFlagChanged(Ljava/lang/Object;Z)V"
+    // The stock setter already has the exact Lnyb flag object in v1. Read its canonical name
+    // instead of reflecting guessed Preference fields.
+    addInstructions(
+        3,
+        """
+            invoke-interface {v1}, Lnyb;->h()Ljava/lang/String;
+            move-result-object v0
+            invoke-static {v0, p1}, $RAMBLER_DICTIONARY_RUNTIME->onOverrideFlagChanged(Ljava/lang/String;Z)V
+        """
     )
 }
 
-private fun MutableMethod.augmentMusePersonalDictionary() {
+private fun MutableMethod.augmentRamblerMusePersonalDictionary(callIndex: Int) {
     val instructions = implementation?.instructions
-        ?: throw PatchException("Muse context constructor has no implementation")
-    if (implementation?.registerCount != 6 || instructions.size != 7) {
-        throw PatchException("Unexpected Muse context constructor layout")
-    }
+        ?: throw PatchException("Muse context builder has no implementation")
+    val call = instructions.getOrNull(callIndex) as? RegisterRangeInstruction
+        ?: throw PatchException("Muse context constructor call is not a range invoke")
+
     if (
-        instructions[0].opcode != Opcode.INVOKE_DIRECT ||
-        instructions[4].opcode != Opcode.IPUT_OBJECT
+        implementation?.registerCount != 22 ||
+        call.registerCount != 6 ||
+        call.startRegister != 12
     ) {
-        throw PatchException("Unexpected Muse context dictionary assignment sequence")
+        throw PatchException("Unexpected Muse context constructor register layout")
     }
 
+    val dictionaryRegister = call.startRegister + 4
     addInstructions(
-        1,
+        callIndex,
         """
-            invoke-static {p4}, $RAMBLER_DICTIONARY_RUNTIME->mergePersonalDictionary(Ljava/util/Collection;)Ljava/util/Collection;
-            move-result-object p4
-            invoke-static {p4}, Lvxm;->o(Ljava/util/Collection;)Lvxm;
-            move-result-object p4
+            invoke-static/range {v$dictionaryRegister .. v$dictionaryRegister}, $RAMBLER_DICTIONARY_RUNTIME->mergePersonalDictionary(Ljava/util/Collection;)Ljava/util/Collection;
+            move-result-object v$dictionaryRegister
+            invoke-static/range {v$dictionaryRegister .. v$dictionaryRegister}, Lvxm;->o(Ljava/util/Collection;)Lvxm;
+            move-result-object v$dictionaryRegister
         """
     )
 }
@@ -295,11 +336,6 @@ private fun MutableMethod.ignoreLocaleForRamblerRows() {
         throw PatchException("Unexpected Rambler dictionary query entry sequence")
     }
 
-    // The stock Rambler-only query still filters by the language selected when the
-    // dictionary screen was opened. Learned Rambler entries are tagged with the language
-    // active during dictation, so that hides valid learned words after switching languages.
-    // Nulling only the language argument when showRamblerOnly is true preserves the stock
-    // shortcut="rambler" filter while leaving every normal personal-dictionary query intact.
     addInstructions(
         0,
         """
@@ -309,33 +345,6 @@ private fun MutableMethod.ignoreLocaleForRamblerRows() {
             nop
         """
     )
-}
-
-private fun MutableMethod.adjustRamblerHelpExternalIntentBlock() {
-    val instructions = implementation?.instructions
-        ?: throw PatchException("External-intent policy method has no implementation")
-    if (implementation?.registerCount != 6) {
-        throw PatchException("Unexpected external-intent policy register layout")
-    }
-
-    val returns = instructions.indices.filter { index ->
-        instructions[index].opcode == Opcode.RETURN
-    }
-    if (returns.size != 2) {
-        throw PatchException("Unexpected external-intent policy return layout")
-    }
-
-    returns.asReversed().forEach { index ->
-        val register = (instructions[index] as? OneRegisterInstruction)?.registerA
-            ?: throw PatchException("External-intent policy return has no register")
-        addInstructions(
-            index,
-            """
-                invoke-static {v$register}, $RAMBLER_HELP_RUNTIME->adjustExternalIntentBlock(Z)Z
-                move-result v$register
-            """
-        )
-    }
 }
 
 private fun MutableMethod.routeToStockHelpAndFeedback(callIndex: Int) {
@@ -355,12 +364,35 @@ private fun MutableMethod.routeToStockHelpAndFeedback(callIndex: Int) {
         throw PatchException("Unexpected Rambler Help & feedback call layout")
     }
 
-    // The stock Rambler row calls the Agentic feedback client, which can silently no-op in
-    // a patched/unsupported-device setup. Route only this row through Gboard's normal Help &
-    // feedback click handler. The extension opens that handler under a tightly scoped bypass
-    // of Loxu.d(); all other external-intent policy checks keep their stock behavior.
     replaceInstruction(
         callIndex,
         "invoke-static {p0, p1}, $RAMBLER_HELP_RUNTIME->openHelpAndFeedback(Ljava/lang/Object;Ljava/lang/Object;)V"
+    )
+}
+
+private fun MutableMethod.scopeStockHelpExternalIntentGuard(callIndex: Int) {
+    val instructions = implementation?.instructions
+        ?: throw PatchException("Stock Help & feedback handler has no implementation")
+    val call = instructions.getOrNull(callIndex) as? FiveRegisterInstruction
+        ?: throw PatchException("Stock Help external-intent call has an unexpected form")
+    val result = instructions.getOrNull(callIndex + 1) as? OneRegisterInstruction
+        ?: throw PatchException("Stock Help external-intent result has an unexpected form")
+
+    if (
+        implementation?.registerCount != 52 ||
+        call.registerCount != 1 ||
+        instructions[callIndex].opcode != Opcode.INVOKE_STATIC ||
+        instructions[callIndex + 1].opcode != Opcode.MOVE_RESULT ||
+        result.registerA != 4
+    ) {
+        throw PatchException("Unexpected stock Help external-intent guard layout")
+    }
+
+    addInstructions(
+        callIndex + 2,
+        """
+            invoke-static {v${result.registerA}}, $RAMBLER_HELP_RUNTIME->adjustExternalIntentBlock(Z)Z
+            move-result v${result.registerA}
+        """
     )
 }
