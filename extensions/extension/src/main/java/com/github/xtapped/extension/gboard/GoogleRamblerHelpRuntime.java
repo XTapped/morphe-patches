@@ -23,7 +23,10 @@ public final class GoogleRamblerHelpRuntime {
      * The direct URL is only a fallback if that handler cannot be invoked.
      */
     public static void openHelpAndFeedback(Object fragment, Object preference) {
-        Context fallbackContext = contextFromFragment(fragment);
+        Context fallbackContext = contextFromPreference(preference);
+        if (fallbackContext == null) {
+            fallbackContext = contextFromFragment(fragment);
+        }
         boolean handled = false;
 
         enterHelpScope();
@@ -68,26 +71,30 @@ public final class GoogleRamblerHelpRuntime {
         return depth() > 0 ? false : originalBlocked;
     }
 
-    private static Context contextFromFragment(Object fragment) {
-        if (fragment != null) {
-            try {
-                Method method = findNoArgMethod(fragment.getClass(), "w");
-                if (method != null) {
-                    Object value = method.invoke(fragment);
-                    if (value instanceof Context) {
-                        return (Context) value;
-                    }
-                }
-            } catch (Throwable ignored) {
-            }
+    private static Context contextFromPreference(Object preference) {
+        if (preference == null) {
+            return null;
         }
-
         try {
-            Class<?> activityThread = Class.forName("android.app.ActivityThread");
-            Method currentApplication = activityThread.getMethod("currentApplication");
-            Object application = currentApplication.invoke(null);
-            if (application instanceof Context) {
-                return (Context) application;
+            Method getContext = preference.getClass().getMethod("getContext");
+            Object value = getContext.invoke(preference);
+            return value instanceof Context ? (Context) value : null;
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static Context contextFromFragment(Object fragment) {
+        if (fragment == null) {
+            return null;
+        }
+        try {
+            Method method = findNoArgMethod(fragment.getClass(), "w");
+            if (method != null) {
+                Object value = method.invoke(fragment);
+                if (value instanceof Context) {
+                    return (Context) value;
+                }
             }
         } catch (Throwable ignored) {
         }
