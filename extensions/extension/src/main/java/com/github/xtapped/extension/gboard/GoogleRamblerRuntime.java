@@ -68,7 +68,9 @@ public final class GoogleRamblerRuntime {
     }
 
     public static void updateOfficialSelection(boolean selected) {
-        // The stock selector remains the source of truth; capability exposure is independent.
+        // Reuse the already-proven stock selection hooks to feed the dictionary runtime.
+        // This avoids adding another mutation to VoiceSettingsFragment.aD()/Lmqz.a().
+        GoogleRamblerDictionaryRuntime.observeSelectionValue(selected);
     }
 
     private static void increment(ThreadLocal<Integer> scope) {
