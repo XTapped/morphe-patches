@@ -1,3 +1,13 @@
+## [1.2.0-dev.12](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.11...v1.2.0-dev.12) (2026-08-30)
+
+### 🐛 Bug Fixes
+
+* harden Rambler dictionary runtime ([6fe7ea3](https://github.com/XTapped/morphe-patches/commit/6fe7ea3a75b055241e779d26d26c3de2edbe3602))
+* harden Rambler help fallback context ([0012798](https://github.com/XTapped/morphe-patches/commit/001279895d778047a75207d1ee597997bf1ecc31))
+* make Rambler hooks startup-safe ([27e6e19](https://github.com/XTapped/morphe-patches/commit/27e6e19e3ae5630112aaba42569e76ba9aaa88da))
+* narrow Rambler runtime hooks ([35baadb](https://github.com/XTapped/morphe-patches/commit/35baadb50f5c7d0870351fe43e271e6b8bfad352))
+* reuse stock Rambler selection state ([cbd8de1](https://github.com/XTapped/morphe-patches/commit/cbd8de19809e830394e1cb817e25d39f683bdf86))
+
 ## [1.2.0-dev.11](https://github.com/XTapped/morphe-patches/compare/v1.2.0-dev.10...v1.2.0-dev.11) (2026-08-29)
 
 ### 🐛 Bug Fixes
