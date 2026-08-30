@@ -16,7 +16,7 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 
-/** Runtime plumbing for Rambler's dictionary and settings-only behavior. */
+/** Runtime plumbing for Rambler dictionary preference, learning, and prompt context. */
 public final class GoogleRamblerDictionaryRuntime {
     private static final String ENABLE_USER_CONTACT_BIASING = "enable_user_contact_biasing";
     private static final String PREFS_NAME = "xtapped_google_rambler";
@@ -33,90 +33,75 @@ public final class GoogleRamblerDictionaryRuntime {
     private GoogleRamblerDictionaryRuntime() {
     }
 
-    /** Captures the context and selector value from Gboard's own stock selection reader. */
-    public static void observeSelection(Context context, boolean selected) {
-        rememberContext(context);
-        observeSelectionValue(selected);
-
-        if (readDictionaryBiasPreference() == null && dictionaryBiasFallback != null) {
-            writeDictionaryBiasPreference(dictionaryBiasFallback.booleanValue());
+    /** Remembers a real Gboard Context without introducing any process-wide Context hook. */
+    public static void observeContext(Context context) {
+        if (context == null) {
+            return;
+        }
+        try {
+            Context appContext = context.getApplicationContext();
+            applicationContext = appContext != null ? appContext : context;
+        } catch (Throwable ignored) {
+            applicationContext = context;
         }
     }
 
-    /** Keeps selection state current immediately when the stock selector is changed. */
+    /** Keeps the current stock Rambler/Standard selector state. */
     public static void observeSelectionValue(boolean selected) {
         ramblerSelected = Boolean.valueOf(selected);
     }
 
-    /** Supplies a non-keyboard context to the stock Rambler feedback access point. */
-    public static Context getApplicationContext() {
-        return applicationContext;
-    }
-
-    /** Applies the persistent value behind the stock "Use dictionary words" switch. */
-    public static Object applyDictionaryFlagValue(String flagName, Object originalResult) {
-        if (!ENABLE_USER_CONTACT_BIASING.equals(flagName) || !(originalResult instanceof Boolean)) {
-            return originalResult;
+    /** Restores the stock settings switch from durable state only for its exact backing flag. */
+    public static boolean resolveDictionaryPreference(String flagName, boolean originalValue) {
+        if (!ENABLE_USER_CONTACT_BIASING.equals(flagName)) {
+            return originalValue;
         }
 
-        dictionaryBiasFallback = (Boolean) originalResult;
         Boolean persisted = readDictionaryBiasPreference();
         if (persisted != null) {
             dictionaryBiasFallback = persisted;
-            return persisted;
+            return persisted.booleanValue();
         }
 
-        // Seed our persistent setting from Gboard's resolved value the first time the flag
-        // is observed. The in-memory fallback keeps the same value effective even if Gboard
-        // resolves the flag before a Context is available for SharedPreferences.
-        writeDictionaryBiasPreference(((Boolean) originalResult).booleanValue());
-        return originalResult;
+        dictionaryBiasFallback = Boolean.valueOf(originalValue);
+        writeDictionaryBiasPreference(originalValue);
+        return originalValue;
     }
 
-    /** Mirrors only the dictionary OverrideFlagPreference into durable production storage. */
-    public static void onOverrideFlagChanged(Object preference, boolean value) {
-        if (preference == null) {
+    /** Mirrors only the dictionary OverrideFlagPreference into durable storage. */
+    public static void onOverrideFlagChanged(String flagName, boolean value) {
+        if (!ENABLE_USER_CONTACT_BIASING.equals(flagName)) {
             return;
         }
-        try {
-            Object flagName = readField(preference, "r");
-            if (!ENABLE_USER_CONTACT_BIASING.equals(flagName)) {
-                return;
-            }
-
-            Object context = readField(preference, "j");
-            if (context instanceof Context) {
-                rememberContext((Context) context);
-            }
-            writeDictionaryBiasPreference(value);
-        } catch (Throwable ignored) {
-            // Gboard's own preference implementation remains the fallback.
-        }
+        writeDictionaryBiasPreference(value);
     }
 
-    /** Adds Gboard's saved and Rambler-learned words to Muse's personal dictionary context. */
+    /** Adds personal-dictionary words only to an active Rambler Muse context. */
     public static Collection<?> mergePersonalDictionary(Collection<?> original) {
-        if (!isDictionaryBiasEnabled()) {
+        if (!Boolean.TRUE.equals(ramblerSelected) || !isDictionaryBiasEnabled()) {
             return original;
-        }
-
-        LinkedHashSet<Object> merged = new LinkedHashSet<Object>();
-        if (original != null) {
-            merged.addAll(original);
         }
 
         Context context = applicationContext;
         if (context == null) {
-            return new ArrayList<Object>(merged);
+            return original;
         }
 
-        for (String word : readPersonalDictionaryWords(context)) {
-            merged.add(word);
+        try {
+            LinkedHashSet<Object> merged = new LinkedHashSet<Object>();
+            if (original != null) {
+                merged.addAll(original);
+            }
+            for (String word : readPersonalDictionaryWords(context)) {
+                merged.add(word);
+            }
+            return new ArrayList<Object>(merged);
+        } catch (Throwable ignored) {
+            return original;
         }
-        return new ArrayList<Object>(merged);
     }
 
-    /** Records eligible Rambler corrections in the database used by Rambler Dictionary. */
+    /** Records corrections accepted by Gboard's learning controller while Rambler is selected. */
     public static void recordRamblerCorrections(Object correctionList) {
         if (correctionList == null || !Boolean.TRUE.equals(ramblerSelected)) {
             return;
@@ -151,16 +136,8 @@ public final class GoogleRamblerDictionaryRuntime {
                 storeRamblerWords(context, learned);
             }
         } catch (Throwable ignored) {
-            // Learning is additive; a storage failure must never break dictation.
+            // Learning is additive; storage/reflection failure must not affect dictation.
         }
-    }
-
-    private static void rememberContext(Context context) {
-        if (context == null) {
-            return;
-        }
-        Context appContext = context.getApplicationContext();
-        applicationContext = appContext != null ? appContext : context;
     }
 
     private static Boolean readDictionaryBiasPreference() {
@@ -169,7 +146,8 @@ public final class GoogleRamblerDictionaryRuntime {
             return null;
         }
         try {
-            SharedPreferences preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            SharedPreferences preferences =
+                    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
             if (!preferences.contains(PREF_DICTIONARY_BIAS)) {
                 return null;
             }
@@ -191,7 +169,7 @@ public final class GoogleRamblerDictionaryRuntime {
                     .putBoolean(PREF_DICTIONARY_BIAS, value)
                     .apply();
         } catch (Throwable ignored) {
-            // The in-memory resolved value remains the fallback if storage is unavailable.
+            // The in-memory value remains effective for the current process.
         }
     }
 
@@ -276,7 +254,7 @@ public final class GoogleRamblerDictionaryRuntime {
                 }
                 words.addAll(distinct);
             } catch (Throwable ignored) {
-                // An unavailable personal dictionary simply contributes no prompt words.
+                // An unavailable personal dictionary contributes no extra prompt words.
             } finally {
                 if (cursor != null) {
                     try {
@@ -305,7 +283,7 @@ public final class GoogleRamblerDictionaryRuntime {
                 String locale = currentLocaleTag(context);
                 database.beginTransaction();
                 for (String word : words) {
-                    if (!containsRamblerWord(database, word, locale)) {
+                    if (!containsRamblerWord(database, word)) {
                         ContentValues values = new ContentValues();
                         values.put("word", word);
                         values.put("shortcut", RAMBLER_SHORTCUT);
@@ -333,18 +311,14 @@ public final class GoogleRamblerDictionaryRuntime {
         }
     }
 
-    private static boolean containsRamblerWord(
-            SQLiteDatabase database,
-            String word,
-            String locale
-    ) {
+    private static boolean containsRamblerWord(SQLiteDatabase database, String word) {
         Cursor cursor = null;
         try {
             cursor = database.query(
                     PERSONAL_DICTIONARY_TABLE,
                     new String[]{"_id"},
-                    "word = ? AND shortcut = ? AND locale = ?",
-                    new String[]{word, RAMBLER_SHORTCUT, locale},
+                    "word = ? AND shortcut = ?",
+                    new String[]{word, RAMBLER_SHORTCUT},
                     null,
                     null,
                     null,
