@@ -156,8 +156,6 @@ internal val gboardRamblerFunctionalityPatch = bytecodePatch(
     description = "Makes Rambler dictionary, learning, and feedback functional."
 ) {
     execute {
-        // Keep runtime state on the Rambler-specific selection path. Avoid intercepting the
-        // global flag getter: Gboard reads that method throughout process startup.
         RamblerSelectionContextFingerprint.method.observeRamblerContext()
 
         OverrideFlagPreferenceInitialStateFingerprint.method.restoreDictionaryPreferenceState()
@@ -207,38 +205,18 @@ private fun MutableMethod.restoreDictionaryPreferenceState() {
         throw PatchException("Unexpected OverrideFlagPreference constructor sequence")
     }
 
-    // The stock preference reads a production flag whose override is not reliable across
-    // processes on unsupported devices. p2 is no longer needed after the superclass
-    // constructor, so use it to preserve the resolved boolean while resolving the flag name.
-    addInstructions(
-        10,
-        """
-            invoke-static {p1}, $RAMBLER_DICTIONARY_RUNTIME->observeContext(Landroid/content/Context;)V
-        """
-    )
-
-    // Context was held in p1 before the stock code reused that register for the boolean. The
-    // call above therefore has to be made while the constructor argument is still intact.
-    // Move it to the method entry instead, before any stock register reuse.
-    removeInstruction(10)
+    // Capture the real Preference Context immediately after the superclass constructor, while
+    // p1 still contains the Context argument.
     addInstruction(
-        0,
+        1,
         "invoke-static {p1}, $RAMBLER_DICTIONARY_RUNTIME->observeContext(Landroid/content/Context;)V"
     )
 
-    // The insertion at method entry shifts the stock invoke-super checked above by one. Find
-    // the move-result boolean and inject immediately after it rather than retaining a stale
-    // source index.
-    val currentInstructions = implementation?.instructions
-        ?: throw PatchException("OverrideFlagPreference constructor disappeared")
-    val booleanResultIndex = currentInstructions.indices.firstOrNull { index ->
-        index > 0 &&
-            currentInstructions[index].opcode == Opcode.MOVE_RESULT &&
-            currentInstructions[index - 1].opcode == Opcode.INVOKE_VIRTUAL
-    } ?: throw PatchException("Could not locate OverrideFlagPreference boolean result")
-
+    // The entry insertion shifts the stock boolean move-result from index 9 to 10 and the
+    // LinkableSwitchPreference.k() call from 10 to 11. p2 is dead after the superclass
+    // constructor, so it can preserve the boolean while p1 is reused for the flag name.
     addInstructions(
-        booleanResultIndex + 1,
+        11,
         """
             move p2, p1
             iget-object p1, p0, $OVERRIDE_FLAG_PREFERENCE->c:Lnyb;
@@ -266,8 +244,6 @@ private fun MutableMethod.persistDictionaryPreference() {
         throw PatchException("Unexpected OverrideFlagPreference setter sequence")
     }
 
-    // The stock setter already has the exact Lnyb flag object in v1. Read its canonical name
-    // instead of reflecting guessed Preference fields.
     addInstructions(
         3,
         """
