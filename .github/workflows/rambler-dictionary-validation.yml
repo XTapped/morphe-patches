@@ -1,0 +1,38 @@
+name: Rambler Dictionary Validation
+
+on:
+  push:
+    branches:
+      - rambler-dictionary-validation
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Java
+        uses: actions/setup-java@v5.7.0
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Build Android patch bundle
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./gradlew :patches:buildAndroid --no-daemon
+
+      - name: Record checksums
+        run: sha256sum patches/build/libs/patches-*.mpp
+
+      - name: Upload validation bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: rambler-dictionary-mpp
+          path: patches/build/libs/patches-*.mpp
+          if-no-files-found: error
