@@ -3,6 +3,7 @@ package com.github.xtapped.extension.gboard;
 /** Exposes Rambler capability flags while leaving Gboard's stock selector as the activation gate. */
 public final class GoogleRamblerRuntime {
     private static final String ENABLE_AGENTIC_DICTATION = "enable_agentic_dictation";
+    private static final String ENABLE_USER_CONTACT_BIASING = "enable_user_contact_biasing";
     private static final String CONFIG_AGENTIC_DICTATION = "config_agentic_dictation";
     private static final String ENABLE_JETSON_IN_TOOLBAR = "enable_jetson_in_toolbar";
     private static final String ENABLE_RAMBLER_AL_TOOLBAR = "enable_rambler_al_toolbar";
@@ -29,6 +30,15 @@ public final class GoogleRamblerRuntime {
         }
         if (!(originalResult instanceof Boolean)) {
             return originalResult;
+        }
+        if (ENABLE_USER_CONTACT_BIASING.equals(flagName)) {
+            boolean originalValue = ((Boolean) originalResult).booleanValue();
+            return Boolean.valueOf(
+                    GoogleRamblerDictionaryRuntime.resolveDictionaryPreference(
+                            flagName,
+                            originalValue
+                    )
+            );
         }
         if (SHOW_PERSONAL_DICT_BIASING_SETTINGS_TOGGLE.equals(flagName)
                 || SHOW_RAMBLER_DICT_SETTINGS.equals(flagName)
