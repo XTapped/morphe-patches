@@ -76,9 +76,14 @@ public final class GoogleRamblerDictionaryRuntime {
         writeDictionaryBiasPreference(value);
     }
 
-    /** Adds personal-dictionary words only to an active Rambler Muse context. */
+    /**
+     * Adds personal-dictionary words only to an active Rambler Muse context.
+     * When biasing is enabled, personal dictionary entries are merged with the base collection.
+     * When biasing is disabled, an empty collection is returned so the <personal_dictionary_context>
+     * block is omitted from the LLM prompt.
+     */
     public static Collection<?> mergePersonalDictionary(Collection<?> original) {
-        if (!Boolean.TRUE.equals(ramblerSelected)) {
+        if (Boolean.FALSE.equals(ramblerSelected)) {
             return original;
         }
         if (!isDictionaryBiasEnabled()) {
@@ -104,9 +109,13 @@ public final class GoogleRamblerDictionaryRuntime {
         }
     }
 
-    /** Records corrections accepted by Gboard's learning controller while Rambler is selected. */
+    /**
+     * Records corrections accepted by Gboard's learning controller while Rambler is selected.
+     * Extracts 'after' tokens from correction instances, normalizes, deduplicates, and saves to
+     * PersonalDictionary.db table 'entry' with shortcut = 'rambler' and current locale tag.
+     */
     public static void recordRamblerCorrections(Object correctionList) {
-        if (correctionList == null || !Boolean.TRUE.equals(ramblerSelected)) {
+        if (correctionList == null || Boolean.FALSE.equals(ramblerSelected)) {
             return;
         }
 
@@ -123,7 +132,7 @@ public final class GoogleRamblerDictionaryRuntime {
 
             LinkedHashSet<String> learned = new LinkedHashSet<String>();
             for (Object correction : (Iterable<?>) rawCorrections) {
-                if (correction == null || !readBooleanField(correction, "h")) {
+                if (correction == null) {
                     continue;
                 }
 
