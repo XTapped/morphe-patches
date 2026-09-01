@@ -14,6 +14,7 @@ import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.RegisterRangeInstruction
 
 private const val RAMBLER_DICTIONARY_RUNTIME =
@@ -96,12 +97,21 @@ private object MuseContextBuilderFingerprint : Fingerprint(
     )
 )
 
-private object RamblerLearningControllerFingerprint : Fingerprint(
-    definingClass = "Lrua;",
-    name = "a",
-    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+private object RamblerCorrectionsProducerFingerprint : Fingerprint(
+    definingClass = "Lihs;",
+    name = "b",
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL, AccessFlags.SYNTHETIC),
     returnType = "V",
-    parameters = listOf("Laafm;", "Laafp;")
+    parameters = listOf("Ljava/lang/Object;"),
+    filters = listOf(
+        string("sendCorrectionsList"),
+        methodCall(
+            definingClass = "Lzug;",
+            name = "n",
+            parameters = emptyList(),
+            returnType = "Lzul;"
+        )
+    )
 )
 
 private object RamblerDictionaryQueryFingerprint : Fingerprint(
@@ -165,7 +175,8 @@ internal val gboardRamblerFunctionalityPatch = bytecodePatch(
         MuseContextBuilderFingerprint.method
             .augmentRamblerMusePersonalDictionary(museConstructorCallIndex)
 
-        RamblerLearningControllerFingerprint.method.observeRamblerCorrections()
+        RamblerCorrectionsProducerFingerprint.method
+            .observeProducedRamblerCorrections()
         RamblerDictionaryQueryFingerprint.method.ignoreLocaleForRamblerRows()
 
         val helpCallIndex = JetsonHelpAndFeedbackFingerprint.instructionMatches.last().index
@@ -280,19 +291,44 @@ private fun MutableMethod.augmentRamblerMusePersonalDictionary(callIndex: Int) {
     )
 }
 
-private fun MutableMethod.observeRamblerCorrections() {
+private fun MutableMethod.observeProducedRamblerCorrections() {
     val instructions = implementation?.instructions
-        ?: throw PatchException("Rambler learning controller has no implementation")
-    if (implementation?.registerCount != 11 || instructions.size < 80) {
-        throw PatchException("Unexpected Rambler learning controller layout")
+        ?: throw PatchException("Rambler corrections producer has no implementation")
+    val resultCallIndices = instructions.indices.filter { index ->
+        index + 2 < instructions.size &&
+            instructions[index].opcode == Opcode.INVOKE_VIRTUAL &&
+            instructions[index + 1].opcode == Opcode.MOVE_RESULT_OBJECT &&
+            instructions[index + 2].opcode == Opcode.CHECK_CAST &&
+            (instructions[index + 2] as? ReferenceInstruction)
+                ?.reference
+                ?.toString() == "Laafp;"
     }
-    if (instructions[0].opcode != Opcode.SGET_OBJECT) {
-        throw PatchException("Unexpected Rambler learning controller entry sequence")
+    if (resultCallIndices.size != 1) {
+        throw PatchException(
+            "Expected exactly one parsed Rambler corrections result, found ${resultCallIndices.size}"
+        )
+    }
+
+    val resultCallIndex = resultCallIndices.single()
+    val result = instructions.getOrNull(resultCallIndex + 1) as? OneRegisterInstruction
+        ?: throw PatchException("Rambler corrections result does not expose a register")
+    val cast = instructions.getOrNull(resultCallIndex + 2) as? OneRegisterInstruction
+        ?: throw PatchException("Rambler corrections result has no type check")
+
+    if (
+        implementation?.registerCount != 13 ||
+        instructions.size < 180 ||
+        instructions[resultCallIndex].opcode != Opcode.INVOKE_VIRTUAL ||
+        instructions[resultCallIndex + 1].opcode != Opcode.MOVE_RESULT_OBJECT ||
+        instructions[resultCallIndex + 2].opcode != Opcode.CHECK_CAST ||
+        result.registerA != cast.registerA
+    ) {
+        throw PatchException("Unexpected Rambler corrections producer layout")
     }
 
     addInstruction(
-        0,
-        "invoke-static {p2}, $RAMBLER_DICTIONARY_RUNTIME->recordRamblerCorrections(Ljava/lang/Object;)V"
+        resultCallIndex + 3,
+        "invoke-static {v${result.registerA}}, $RAMBLER_DICTIONARY_RUNTIME->recordRamblerCorrections(Ljava/lang/Object;)V"
     )
 }
 
