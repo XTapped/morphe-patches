@@ -78,8 +78,11 @@ public final class GoogleRamblerDictionaryRuntime {
 
     /** Adds personal-dictionary words only to an active Rambler Muse context. */
     public static Collection<?> mergePersonalDictionary(Collection<?> original) {
-        if (!Boolean.TRUE.equals(ramblerSelected) || !isDictionaryBiasEnabled()) {
+        if (!Boolean.TRUE.equals(ramblerSelected)) {
             return original;
+        }
+        if (!isDictionaryBiasEnabled()) {
+            return new ArrayList<Object>();
         }
 
         Context context = applicationContext;
