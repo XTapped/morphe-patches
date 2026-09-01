@@ -145,23 +145,6 @@ private object JetsonHelpAndFeedbackFingerprint : Fingerprint(
     )
 )
 
-private object StockHelpAndFeedbackFingerprint : Fingerprint(
-    definingClass = "Levx;",
-    name = "b",
-    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
-    returnType = "Z",
-    parameters = listOf("Landroidx/preference/Preference;"),
-    filters = listOf(
-        methodCall(
-            definingClass = "Loxu;",
-            name = "d",
-            parameters = listOf("Landroid/content/Context;"),
-            returnType = "Z"
-        ),
-        string("android_gboard")
-    )
-)
-
 internal val gboardRamblerFunctionalityPatch = bytecodePatch(
     description = "Makes Rambler dictionary, learning, and feedback functional."
 ) {
@@ -181,9 +164,6 @@ internal val gboardRamblerFunctionalityPatch = bytecodePatch(
 
         val helpCallIndex = JetsonHelpAndFeedbackFingerprint.instructionMatches.last().index
         JetsonHelpAndFeedbackFingerprint.method.routeToStockHelpAndFeedback(helpCallIndex)
-
-        val stockHelpGuardIndex = StockHelpAndFeedbackFingerprint.instructionMatches.first().index
-        StockHelpAndFeedbackFingerprint.method.scopeStockHelpExternalIntentGuard(stockHelpGuardIndex)
     }
 }
 
@@ -378,33 +358,6 @@ private fun MutableMethod.routeToStockHelpAndFeedback(callIndex: Int) {
 
     replaceInstruction(
         callIndex,
-        "invoke-static {p0, p1}, $RAMBLER_HELP_RUNTIME->openHelpAndFeedback(Ljava/lang/Object;Ljava/lang/Object;)V"
-    )
-}
-
-private fun MutableMethod.scopeStockHelpExternalIntentGuard(callIndex: Int) {
-    val instructions = implementation?.instructions
-        ?: throw PatchException("Stock Help & feedback handler has no implementation")
-    val call = instructions.getOrNull(callIndex) as? FiveRegisterInstruction
-        ?: throw PatchException("Stock Help external-intent call has an unexpected form")
-    val result = instructions.getOrNull(callIndex + 1) as? OneRegisterInstruction
-        ?: throw PatchException("Stock Help external-intent result has an unexpected form")
-
-    if (
-        implementation?.registerCount != 52 ||
-        call.registerCount != 1 ||
-        instructions[callIndex].opcode != Opcode.INVOKE_STATIC ||
-        instructions[callIndex + 1].opcode != Opcode.MOVE_RESULT ||
-        result.registerA != 4
-    ) {
-        throw PatchException("Unexpected stock Help external-intent guard layout")
-    }
-
-    addInstructions(
-        callIndex + 2,
-        """
-            invoke-static {v${result.registerA}}, $RAMBLER_HELP_RUNTIME->adjustExternalIntentBlock(Z)Z
-            move-result v${result.registerA}
-        """
+        "invoke-static {p0}, $RAMBLER_HELP_RUNTIME->openVoiceTypingHelp(Landroid/content/Context;)V"
     )
 }
