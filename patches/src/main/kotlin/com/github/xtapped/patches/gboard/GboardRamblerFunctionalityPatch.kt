@@ -4,6 +4,7 @@ import app.morphe.patcher.Fingerprint
 import app.morphe.patcher.extensions.InstructionExtensions.addInstruction
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.extensions.InstructionExtensions.replaceInstruction
+import app.morphe.patcher.fieldAccess
 import app.morphe.patcher.literal
 import app.morphe.patcher.methodCall
 import app.morphe.patcher.patch.PatchException
@@ -97,19 +98,17 @@ private object MuseContextBuilderFingerprint : Fingerprint(
     )
 )
 
-private object RamblerCorrectionsProducerFingerprint : Fingerprint(
-    definingClass = "Lihs;",
-    name = "b",
-    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL, AccessFlags.SYNTHETIC),
+private object RamblerWordLearningFingerprint : Fingerprint(
+    definingClass = "Lfbk;",
+    name = "j",
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
     returnType = "V",
-    parameters = listOf("Ljava/lang/Object;"),
+    parameters = listOf("Laaar;", "Lrrj;", "Ljava/lang/String;"),
     filters = listOf(
-        string("sendCorrectionsList"),
-        methodCall(
-            definingClass = "Lzug;",
-            name = "n",
-            parameters = emptyList(),
-            returnType = "Lzul;"
+        fieldAccess(
+            definingClass = "Lfbd;",
+            name = "b",
+            type = "Ljava/util/concurrent/atomic/AtomicReference;"
         )
     )
 )
@@ -158,8 +157,10 @@ internal val gboardRamblerFunctionalityPatch = bytecodePatch(
         MuseContextBuilderFingerprint.method
             .augmentRamblerMusePersonalDictionary(museConstructorCallIndex)
 
-        RamblerCorrectionsProducerFingerprint.method
-            .observeProducedRamblerCorrections()
+        val wordLearningTargetIndex = RamblerWordLearningFingerprint.instructionMatches.first().index
+        RamblerWordLearningFingerprint.method
+            .observeRamblerWordLearning(wordLearningTargetIndex)
+
         RamblerDictionaryQueryFingerprint.method.ignoreLocaleForRamblerRows()
 
         val helpCallIndex = JetsonHelpAndFeedbackFingerprint.instructionMatches.last().index
@@ -263,52 +264,34 @@ private fun MutableMethod.augmentRamblerMusePersonalDictionary(callIndex: Int) {
     addInstructions(
         callIndex,
         """
-            invoke-static/range {v$dictionaryRegister .. v$dictionaryRegister}, $RAMBLER_DICTIONARY_RUNTIME->mergePersonalDictionary(Ljava/util/Collection;)Ljava/util/Collection;
-            move-result-object v$dictionaryRegister
-            invoke-static/range {v$dictionaryRegister .. v$dictionaryRegister}, Lvxm;->o(Ljava/util/Collection;)Lvxm;
+            move-object v0, v$dictionaryRegister
+            iget-object v2, v1, Lics;->b:Landroid/content/Context;
+            invoke-static {v0, v2}, $RAMBLER_DICTIONARY_RUNTIME->mergePersonalDictionary(Ljava/util/Collection;Landroid/content/Context;)Ljava/util/Collection;
+            move-result-object v0
+            invoke-static {v0}, Lvxm;->o(Ljava/util/Collection;)Lvxm;
             move-result-object v$dictionaryRegister
         """
     )
 }
 
-private fun MutableMethod.observeProducedRamblerCorrections() {
+private fun MutableMethod.observeRamblerWordLearning(targetIndex: Int) {
     val instructions = implementation?.instructions
-        ?: throw PatchException("Rambler corrections producer has no implementation")
-    val resultCallIndices = instructions.indices.filter { index ->
-        index + 2 < instructions.size &&
-            instructions[index].opcode == Opcode.INVOKE_VIRTUAL &&
-            instructions[index + 1].opcode == Opcode.MOVE_RESULT_OBJECT &&
-            instructions[index + 2].opcode == Opcode.CHECK_CAST &&
-            (instructions[index + 2] as? ReferenceInstruction)
-                ?.reference
-                ?.toString() == "Laafp;"
-    }
-    if (resultCallIndices.size != 1) {
-        throw PatchException(
-            "Expected exactly one parsed Rambler corrections result, found ${resultCallIndices.size}"
-        )
-    }
-
-    val resultCallIndex = resultCallIndices.single()
-    val result = instructions.getOrNull(resultCallIndex + 1) as? OneRegisterInstruction
-        ?: throw PatchException("Rambler corrections result does not expose a register")
-    val cast = instructions.getOrNull(resultCallIndex + 2) as? OneRegisterInstruction
-        ?: throw PatchException("Rambler corrections result has no type check")
+        ?: throw PatchException("Rambler word learning handler has no implementation")
+    val target = instructions.getOrNull(targetIndex)
+        ?: throw PatchException("Rambler word learning target index out of bounds")
 
     if (
-        implementation?.registerCount != 13 ||
-        instructions.size < 180 ||
-        instructions[resultCallIndex].opcode != Opcode.INVOKE_VIRTUAL ||
-        instructions[resultCallIndex + 1].opcode != Opcode.MOVE_RESULT_OBJECT ||
-        instructions[resultCallIndex + 2].opcode != Opcode.CHECK_CAST ||
-        result.registerA != cast.registerA
+        target.opcode != Opcode.SGET_OBJECT ||
+        targetIndex < 2 ||
+        instructions[targetIndex - 2].opcode != Opcode.INVOKE_VIRTUAL ||
+        instructions[targetIndex - 1].opcode != Opcode.MOVE_RESULT_OBJECT
     ) {
-        throw PatchException("Unexpected Rambler corrections producer layout")
+        throw PatchException("Unexpected Rambler word learning target layout")
     }
 
     addInstruction(
-        resultCallIndex + 3,
-        "invoke-static {v${result.registerA}}, $RAMBLER_DICTIONARY_RUNTIME->recordRamblerCorrections(Ljava/lang/Object;)V"
+        targetIndex,
+        "invoke-static {v8, v0}, $RAMBLER_DICTIONARY_RUNTIME->learnRamblerWords(Ljava/lang/String;Landroid/content/Context;)V"
     )
 }
 

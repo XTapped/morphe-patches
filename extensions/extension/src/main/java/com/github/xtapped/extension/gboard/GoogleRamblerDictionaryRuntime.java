@@ -1,5 +1,6 @@
 package com.github.xtapped.extension.gboard;
 
+import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -7,10 +8,14 @@ import android.content.res.Configuration;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.net.Uri;
 import android.os.Build;
+import android.provider.UserDictionary;
 
+import java.io.File;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.text.BreakIterator;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -79,19 +84,28 @@ public final class GoogleRamblerDictionaryRuntime {
     /**
      * Adds personal-dictionary words only to an active Rambler Muse context.
      * When biasing is enabled, personal dictionary entries are merged with the base collection.
-     * When biasing is disabled, an empty collection is returned so the <personal_dictionary_context>
-     * block is omitted from the LLM prompt.
+     * When biasing is disabled, the base collection (contacts + name dictionary) is preserved untouched.
      */
     public static Collection<?> mergePersonalDictionary(Collection<?> original) {
+        return mergePersonalDictionary(original, null);
+    }
+
+    /**
+     * Context-aware variant called by patched MuseContextModule to guarantee non-null Context.
+     */
+    public static Collection<?> mergePersonalDictionary(Collection<?> original, Context context) {
+        if (context != null) {
+            observeContext(context);
+        }
         if (Boolean.FALSE.equals(ramblerSelected)) {
             return original;
         }
         if (!isDictionaryBiasEnabled()) {
-            return new ArrayList<Object>();
+            return original != null ? original : new ArrayList<Object>();
         }
 
-        Context context = applicationContext;
-        if (context == null) {
+        Context ctx = context != null ? context : applicationContext;
+        if (ctx == null) {
             return original;
         }
 
@@ -100,7 +114,7 @@ public final class GoogleRamblerDictionaryRuntime {
             if (original != null) {
                 merged.addAll(original);
             }
-            for (String word : readPersonalDictionaryWords(context)) {
+            for (String word : readPersonalDictionaryWords(ctx)) {
                 merged.add(word);
             }
             return new ArrayList<Object>(merged);
@@ -110,9 +124,49 @@ public final class GoogleRamblerDictionaryRuntime {
     }
 
     /**
+     * Automatically extracts and stores words from finalized Rambler voice dictation into
+     * PersonalDictionary.db table 'entry' with shortcut = 'rambler'.
+     */
+    public static void learnRamblerWords(String text, Context context) {
+        if (text == null || context == null) {
+            return;
+        }
+        observeContext(context);
+
+        String trimmed = text.trim();
+        if (trimmed.isEmpty()) {
+            return;
+        }
+
+        try {
+            Locale locale = currentLocale(context);
+            BreakIterator iterator = BreakIterator.getWordInstance(locale);
+            iterator.setText(trimmed);
+
+            LinkedHashSet<String> candidateWords = new LinkedHashSet<String>();
+            int start = iterator.first();
+            int end = iterator.next();
+            while (end != BreakIterator.DONE) {
+                String token = trimmed.substring(start, end).trim();
+                if (isValidCandidateWord(token)) {
+                    candidateWords.add(token);
+                }
+                start = end;
+                end = iterator.next();
+            }
+
+            if (!candidateWords.isEmpty()) {
+                storeRamblerWords(context, candidateWords);
+            }
+        } catch (Throwable ignored) {
+            // Learning is additive and must never interrupt dictation.
+        }
+    }
+
+    /**
      * Records corrections accepted by Gboard's learning controller while Rambler is selected.
      * Extracts 'after' tokens from correction instances, normalizes, deduplicates, and saves to
-     * PersonalDictionary.db table 'entry' with shortcut = 'rambler' and current locale tag.
+     * PersonalDictionary.db table 'entry' with shortcut = 'rambler'.
      */
     public static void recordRamblerCorrections(Object correctionList) {
         if (correctionList == null || Boolean.FALSE.equals(ramblerSelected)) {
@@ -240,33 +294,50 @@ public final class GoogleRamblerDictionaryRuntime {
         return trimmed;
     }
 
+    private static boolean isValidCandidateWord(String token) {
+        if (token == null || token.length() < 2 || token.length() > 48) {
+            return false;
+        }
+        boolean hasLetter = false;
+        for (int i = 0; i < token.length(); i++) {
+            char c = token.charAt(i);
+            if (Character.isLetter(c)) {
+                hasLetter = true;
+            } else if (c != '\'' && c != '-') {
+                return false;
+            }
+        }
+        return hasLetter;
+    }
+
     private static ArrayList<String> readPersonalDictionaryWords(Context context) {
         ArrayList<String> words = new ArrayList<String>();
+        LinkedHashSet<String> distinct = new LinkedHashSet<String>();
+
+        // 1. Read from Gboard's PersonalDictionary.db table 'entry'
         synchronized (DICTIONARY_LOCK) {
-            SQLiteOpenHelper helper = null;
+            SQLiteDatabase database = null;
             Cursor cursor = null;
             try {
-                helper = createPersonalDictionaryHelper(context);
-                SQLiteDatabase database = helper.getReadableDatabase();
-                cursor = database.query(
-                        PERSONAL_DICTIONARY_TABLE,
-                        new String[]{"word"},
-                        null,
-                        null,
-                        null,
-                        null,
-                        "word COLLATE NOCASE"
-                );
-                LinkedHashSet<String> distinct = new LinkedHashSet<String>();
-                while (cursor.moveToNext()) {
-                    String word = normalizeWord(cursor.getString(0));
-                    if (word != null) {
-                        distinct.add(word);
+                database = openDictionaryDatabase(context, false);
+                if (database != null) {
+                    cursor = database.query(
+                            PERSONAL_DICTIONARY_TABLE,
+                            new String[]{"word"},
+                            null,
+                            null,
+                            null,
+                            null,
+                            "word COLLATE NOCASE"
+                    );
+                    while (cursor.moveToNext()) {
+                        String word = normalizeWord(cursor.getString(0));
+                        if (word != null) {
+                            distinct.add(word);
+                        }
                     }
                 }
-                words.addAll(distinct);
             } catch (Throwable ignored) {
-                // An unavailable personal dictionary contributes no extra prompt words.
             } finally {
                 if (cursor != null) {
                     try {
@@ -274,48 +345,88 @@ public final class GoogleRamblerDictionaryRuntime {
                     } catch (Throwable ignored) {
                     }
                 }
-                if (helper != null) {
+                if (database != null) {
                     try {
-                        helper.close();
+                        database.close();
                     } catch (Throwable ignored) {
                     }
                 }
             }
         }
+
+        // 2. Read from Android System UserDictionary
+        try {
+            ContentResolver resolver = context.getContentResolver();
+            Cursor systemCursor = resolver.query(
+                    UserDictionary.Words.CONTENT_URI,
+                    new String[]{UserDictionary.Words.WORD},
+                    null,
+                    null,
+                    null
+            );
+            if (systemCursor != null) {
+                try {
+                    while (systemCursor.moveToNext()) {
+                        String word = normalizeWord(systemCursor.getString(0));
+                        if (word != null) {
+                            distinct.add(word);
+                        }
+                    }
+                } finally {
+                    systemCursor.close();
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+
+        words.addAll(distinct);
         return words;
     }
 
     private static void storeRamblerWords(Context context, Collection<String> words) {
         synchronized (DICTIONARY_LOCK) {
-            SQLiteOpenHelper helper = null;
             SQLiteDatabase database = null;
             try {
-                helper = createPersonalDictionaryHelper(context);
-                database = helper.getWritableDatabase();
+                database = openDictionaryDatabase(context, true);
+                if (database == null) {
+                    return;
+                }
                 String locale = currentLocaleTag(context);
                 database.beginTransaction();
+                boolean anyInserted = false;
                 for (String word : words) {
-                    if (!containsRamblerWord(database, word)) {
+                    String normalized = normalizeWord(word);
+                    if (normalized != null && !containsWord(database, normalized)) {
                         ContentValues values = new ContentValues();
-                        values.put("word", word);
+                        values.put("word", normalized);
                         values.put("shortcut", RAMBLER_SHORTCUT);
                         values.put("locale", locale);
                         database.insert(PERSONAL_DICTIONARY_TABLE, null, values);
+                        anyInserted = true;
                     }
                 }
                 database.setTransactionSuccessful();
-            } catch (Throwable ignored) {
-                // Learning is best-effort and must never interrupt the voice session.
-            } finally {
-                if (database != null && database.inTransaction()) {
+                if (anyInserted) {
                     try {
-                        database.endTransaction();
+                        context.getContentResolver().notifyChange(
+                                Uri.parse("content://com.google.android.inputmethod.latin.personaldictionary/entry"),
+                                null
+                        );
                     } catch (Throwable ignored) {
                     }
                 }
-                if (helper != null) {
+            } catch (Throwable ignored) {
+                // Learning is best-effort and must never interrupt the voice session.
+            } finally {
+                if (database != null) {
+                    if (database.inTransaction()) {
+                        try {
+                            database.endTransaction();
+                        } catch (Throwable ignored) {
+                        }
+                    }
                     try {
-                        helper.close();
+                        database.close();
                     } catch (Throwable ignored) {
                     }
                 }
@@ -323,25 +434,55 @@ public final class GoogleRamblerDictionaryRuntime {
         }
     }
 
-    private static boolean containsRamblerWord(SQLiteDatabase database, String word) {
+    private static boolean containsWord(SQLiteDatabase database, String word) {
         Cursor cursor = null;
         try {
             cursor = database.query(
                     PERSONAL_DICTIONARY_TABLE,
                     new String[]{"_id"},
-                    "word = ? AND shortcut = ?",
-                    new String[]{word, RAMBLER_SHORTCUT},
+                    "word = ? COLLATE NOCASE",
+                    new String[]{word},
                     null,
                     null,
                     null,
                     "1"
             );
-            return cursor.moveToFirst();
+            return cursor != null && cursor.moveToFirst();
         } finally {
             if (cursor != null) {
                 cursor.close();
             }
         }
+    }
+
+    private static SQLiteDatabase openDictionaryDatabase(Context context, boolean writable) {
+        try {
+            SQLiteOpenHelper helper = createPersonalDictionaryHelper(context);
+            return writable ? helper.getWritableDatabase() : helper.getReadableDatabase();
+        } catch (Throwable t1) {
+            try {
+                File dbFile = context.getDatabasePath("PersonalDictionary.db");
+                if (writable) {
+                    SQLiteDatabase db = SQLiteDatabase.openOrCreateDatabase(dbFile, null);
+                    db.execSQL(
+                            "CREATE TABLE IF NOT EXISTS " + PERSONAL_DICTIONARY_TABLE + " ("
+                                    + "_id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                                    + "word TEXT, "
+                                    + "shortcut TEXT, "
+                                    + "locale TEXT)"
+                    );
+                    return db;
+                } else if (dbFile.exists()) {
+                    return SQLiteDatabase.openDatabase(
+                            dbFile.getPath(),
+                            null,
+                            SQLiteDatabase.OPEN_READONLY
+                    );
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+        return null;
     }
 
     private static SQLiteOpenHelper createPersonalDictionaryHelper(Context context) throws Exception {
@@ -355,19 +496,23 @@ public final class GoogleRamblerDictionaryRuntime {
         return (SQLiteOpenHelper) helper;
     }
 
-    private static String currentLocaleTag(Context context) {
+    private static Locale currentLocale(Context context) {
         try {
             Configuration configuration = context.getResources().getConfiguration();
-            Locale locale;
             if (Build.VERSION.SDK_INT >= 24 && !configuration.getLocales().isEmpty()) {
-                locale = configuration.getLocales().get(0);
+                return configuration.getLocales().get(0);
             } else {
-                locale = configuration.locale;
-            }
-            if (locale != null) {
-                return locale.toLanguageTag();
+                return configuration.locale;
             }
         } catch (Throwable ignored) {
+        }
+        return Locale.getDefault();
+    }
+
+    private static String currentLocaleTag(Context context) {
+        Locale locale = currentLocale(context);
+        if (locale != null) {
+            return locale.toLanguageTag();
         }
         return Locale.getDefault().toLanguageTag();
     }
